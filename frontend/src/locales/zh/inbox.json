@@ -1,0 +1,18 @@
+{
+  "title": "消息收件箱",
+  "allMessages": "全部",
+  "whatsapp": "WhatsApp",
+  "emailChannel": "邮件",
+  "unread": "未读",
+  "reply": "回复",
+  "send": "发送",
+  "markRead": "标记已读",
+  "noMessages": "暂无消息",
+  "conversation": "对话记录",
+  "from": "发件人",
+  "to": "收件人",
+  "subject": "主题",
+  "replyPlaceholder": "输入回复内容...",
+  "inbound": "收到",
+  "outbound": "发送"
+}

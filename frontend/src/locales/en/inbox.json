@@ -1,0 +1,18 @@
+{
+  "title": "Inbox",
+  "allMessages": "All",
+  "whatsapp": "WhatsApp",
+  "emailChannel": "Email",
+  "unread": "Unread",
+  "reply": "Reply",
+  "send": "Send",
+  "markRead": "Mark as read",
+  "noMessages": "No messages",
+  "conversation": "Conversation",
+  "from": "From",
+  "to": "To",
+  "subject": "Subject",
+  "replyPlaceholder": "Type your reply...",
+  "inbound": "Received",
+  "outbound": "Sent"
+}

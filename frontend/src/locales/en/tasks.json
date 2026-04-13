@@ -1,0 +1,17 @@
+{
+  "title": "Tasks",
+  "newTask": "New Task",
+  "editTask": "Edit Task",
+  "taskTitle": "Task Title",
+  "relatedContact": "Related Contact",
+  "assignee": "Assignee",
+  "dueDate": "Due Date",
+  "markDone": "Mark Done",
+  "markUndone": "Undo",
+  "pending": "Pending",
+  "done": "Done",
+  "overdue": "Overdue",
+  "dueToday": "Due Today",
+  "noTasks": "No tasks",
+  "todayDueReminder": "You have {{count}} task(s) due today"
+}

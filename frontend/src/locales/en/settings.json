@@ -1,0 +1,40 @@
+{
+  "title": "Settings",
+  "users": "Users",
+  "routing": "Routing Rules",
+  "targets": "Sales Targets",
+  "integrations": "Integrations",
+  "industries": "Industries",
+  "userManagement": {
+    "title": "User Management",
+    "newUser": "New User",
+    "editUser": "Edit User",
+    "role": "Role",
+    "admin": "Admin",
+    "manager": "Manager",
+    "sales": "Sales Rep",
+    "active": "Active",
+    "inactive": "Inactive",
+    "manager_label": "Manager"
+  },
+  "routingRules": {
+    "title": "Routing Rules",
+    "newRule": "New Rule",
+    "ruleName": "Rule Name",
+    "strategy": "Strategy",
+    "workload": "Workload",
+    "region": "Region",
+    "winRate": "Win Rate",
+    "targetUsers": "Target Users",
+    "regionConditions": "Region Conditions",
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
+  "salesTargets": {
+    "title": "Sales Targets",
+    "year": "Year",
+    "month": "Month",
+    "targetAmount": "Target Amount",
+    "targetCount": "Target Count"
+  }
+}

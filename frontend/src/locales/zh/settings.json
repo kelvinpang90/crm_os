@@ -1,0 +1,40 @@
+{
+  "title": "系统设置",
+  "users": "用户管理",
+  "routing": "客户分配规则",
+  "targets": "销售目标设置",
+  "integrations": "集成配置",
+  "industries": "行业配置",
+  "userManagement": {
+    "title": "用户管理",
+    "newUser": "新建用户",
+    "editUser": "编辑用户",
+    "role": "角色",
+    "admin": "管理员",
+    "manager": "销售主管",
+    "sales": "销售代表",
+    "active": "启用",
+    "inactive": "停用",
+    "manager_label": "上级主管"
+  },
+  "routingRules": {
+    "title": "客户分配规则",
+    "newRule": "新建规则",
+    "ruleName": "规则名称",
+    "strategy": "分配策略",
+    "workload": "当前工作量",
+    "region": "地区匹配",
+    "winRate": "历史成交率",
+    "targetUsers": "参与分配的销售",
+    "regionConditions": "地区条件",
+    "enabled": "启用",
+    "disabled": "禁用"
+  },
+  "salesTargets": {
+    "title": "销售目标",
+    "year": "年份",
+    "month": "月份",
+    "targetAmount": "目标金额",
+    "targetCount": "目标单数"
+  }
+}
