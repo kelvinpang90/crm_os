@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  body {
+    @apply bg-dark-bg text-text-primary font-sans antialiased;
+    min-height: 100vh;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-dark-bg;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-dark-border rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-text-muted;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-gradient-to-r from-primary to-accent text-white px-4 py-2 rounded-lg
+           font-medium transition-all duration-200 hover:opacity-90 active:scale-[0.98]
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-dark-card border border-dark-border text-text-primary px-4 py-2 rounded-lg
+           font-medium transition-all duration-200 hover:bg-dark-hover
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .card {
+    @apply bg-dark-card border border-dark-border rounded-xl p-4;
+  }
+
+  .input {
+    @apply bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-text-primary
+           placeholder-text-muted focus:outline-none focus:border-primary focus:ring-1
+           focus:ring-primary transition-colors w-full;
+  }
+}
