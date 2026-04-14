@@ -13,5 +13,6 @@
   "overdue": "已逾期",
   "dueToday": "今日到期",
   "noTasks": "暂无任务",
-  "todayDueReminder": "您有 {{count}} 个任务今日到期"
+  "todayDueReminder": "您有 {{count}} 个任务今日到期",
+  "todayTasks": "今日任务"
 }

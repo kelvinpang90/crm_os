@@ -5,9 +5,9 @@ class Settings(BaseSettings):
     # Database
     db_host: str = "localhost"
     db_port: int = 3306
-    db_user: str = "crm_user"
-    db_password: str = "crm_pass"
-    db_name: str = "crm_db"
+    db_user: str = "root"
+    db_password: str = "123456"
+    db_name: str = "crm_os"
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"

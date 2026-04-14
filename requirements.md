@@ -1138,7 +1138,7 @@ DB_HOST=localhost
 DB_PORT=3306
 DB_USER=crm_user
 DB_PASSWORD=your_db_password
-DB_NAME=crm_db
+DB_NAME=crm_os
 
 # ─────────────────────────────────────────
 # 缓存（Redis）
@@ -1314,10 +1314,10 @@ services:
   mysql:
     image: mysql:8.0
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: crm_db
-      MYSQL_USER: crm_user
-      MYSQL_PASSWORD: crm_pass
+      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_DATABASE: crm_os
+      MYSQL_USER: root
+      MYSQL_PASSWORD: 123456
     ports: ["3306:3306"]
     volumes: [mysql_data:/var/lib/mysql]
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci

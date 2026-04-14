@@ -1,16 +1,46 @@
-from typing import Annotated
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_role
 from app.models.user import User
+from app.utils.security import hash_password
 from app.utils.response import ok, fail
 
 router = APIRouter()
 
+
+# ---------- Schemas ----------
+
+class UserCreate(BaseModel):
+    name: str
+    email: str
+    password: str
+    role: str = "sales"
+    manager_id: Optional[str] = None
+
+    @field_validator("role")
+    @classmethod
+    def valid_role(cls, v: str) -> str:
+        if v not in ("admin", "manager", "sales"):
+            raise ValueError("角色无效")
+        return v
+
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    role: Optional[str] = None
+    manager_id: Optional[str] = None
+    is_active: Optional[bool] = None
+    password: Optional[str] = None
+
+
+# ---------- Helpers ----------
 
 def _user_to_dict(u: User) -> dict:
     return {
@@ -23,8 +53,11 @@ def _user_to_dict(u: User) -> dict:
         "manager_id": u.manager_id,
         "is_active": u.is_active,
         "created_at": u.created_at.isoformat() if u.created_at else None,
+        "updated_at": u.updated_at.isoformat() if u.updated_at else None,
     }
 
+
+# ---------- Endpoints ----------
 
 @router.get("")
 async def list_users(
@@ -44,6 +77,99 @@ async def list_users(
     result = await db.execute(query.order_by(User.name))
     users = result.scalars().all()
     return ok(data=[_user_to_dict(u) for u in users])
+
+
+@router.get("/all")
+async def list_all_users(
+    current_user: Annotated[User, Depends(require_role("admin"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Admin: list all users including inactive ones."""
+    result = await db.execute(select(User).order_by(User.name))
+    users = result.scalars().all()
+    return ok(data=[_user_to_dict(u) for u in users])
+
+
+@router.post("")
+async def create_user(
+    body: UserCreate,
+    current_user: Annotated[User, Depends(require_role("admin"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    # Check duplicate email
+    existing = await db.execute(select(User).where(User.email == body.email))
+    if existing.scalar_one_or_none():
+        return fail(message="邮箱已存在", code=400)
+
+    user = User(
+        name=body.name,
+        email=body.email,
+        password_hash=hash_password(body.password),
+        role=body.role,
+        manager_id=body.manager_id,
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return ok(data=_user_to_dict(user))
+
+
+@router.put("/{user_id}")
+async def update_user(
+    user_id: str,
+    body: UserUpdate,
+    current_user: Annotated[User, Depends(require_role("admin"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+
+    if body.name is not None:
+        user.name = body.name
+    if body.email is not None:
+        # Check duplicate
+        dup = await db.execute(
+            select(User).where(User.email == body.email, User.id != user_id)
+        )
+        if dup.scalar_one_or_none():
+            return fail(message="邮箱已存在", code=400)
+        user.email = body.email
+    if body.role is not None:
+        if body.role not in ("admin", "manager", "sales"):
+            return fail(message="角色无效", code=400)
+        user.role = body.role
+    if body.manager_id is not None:
+        user.manager_id = body.manager_id
+    if body.is_active is not None:
+        user.is_active = body.is_active
+    if body.password is not None:
+        user.password_hash = hash_password(body.password)
+
+    await db.commit()
+    await db.refresh(user)
+    return ok(data=_user_to_dict(user))
+
+
+@router.patch("/{user_id}/toggle")
+async def toggle_user(
+    user_id: str,
+    current_user: Annotated[User, Depends(require_role("admin"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+
+    if user.id == current_user.id:
+        return fail(message="不能停用自己的账号", code=400)
+
+    user.is_active = not user.is_active
+    await db.commit()
+    await db.refresh(user)
+    return ok(data=_user_to_dict(user))
 
 
 @router.patch("/me/language")

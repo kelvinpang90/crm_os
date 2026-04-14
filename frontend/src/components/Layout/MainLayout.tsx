@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import Sidebar from './Sidebar';
 import BottomTabBar from './BottomTabBar';
+import TaskReminder from '@/components/common/TaskReminder';
 import clsx from 'clsx';
 
 export default function MainLayout() {
@@ -29,6 +30,7 @@ export default function MainLayout() {
       </main>
 
       {isMobile && <BottomTabBar />}
+      <TaskReminder />
     </div>
   );
 }

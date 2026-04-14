@@ -13,5 +13,6 @@
   "overdue": "Overdue",
   "dueToday": "Due Today",
   "noTasks": "No tasks",
-  "todayDueReminder": "You have {{count}} task(s) due today"
+  "todayDueReminder": "You have {{count}} task(s) due today",
+  "todayTasks": "Today's Tasks"
 }

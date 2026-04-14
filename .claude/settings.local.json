@@ -4,7 +4,9 @@
       "Bash(npm install:*)",
       "Bash(npx tsc:*)",
       "Bash(npx vite:*)",
-      "Bash(python -c \"from app.main import app; print\\('OK'\\)\")"
+      "Bash(python -c \"from app.main import app; print\\('OK'\\)\")",
+      "Bash(sed -n '527,540p' E:/projects/crm_os/requirements.md)",
+      "Bash(sed -n '800,810p' E:/projects/crm_os/requirements.md)"
     ]
   }
 }
