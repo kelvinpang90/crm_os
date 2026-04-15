@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { formatMYR } from '@/utils/currency';
 import {
   ResponsiveContainer,
   LineChart,
@@ -37,7 +38,7 @@ export default function GmvTrendChart({ data, period, onPeriodChange, title }: P
                   : 'bg-dark-hover text-text-muted hover:text-text-secondary'
               )}
             >
-              {p === 'month' ? '月' : '年'}
+              {p === 'month' ? 'Month' : 'Year'}
             </button>
           ))}
         </div>
@@ -56,7 +57,7 @@ export default function GmvTrendChart({ data, period, onPeriodChange, title }: P
             fontSize={11}
             tickLine={false}
             tickFormatter={(v: number) =>
-              v >= 10000 ? `¥${(v / 10000).toFixed(0)}万` : `¥${v}`
+              v >= 1_000_000 ? `RM ${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `RM ${(v / 1_000).toFixed(0)}K` : `RM ${v}`
             }
           />
           <Tooltip
@@ -67,7 +68,7 @@ export default function GmvTrendChart({ data, period, onPeriodChange, title }: P
               color: '#f1f5f9',
               fontSize: '12px',
             }}
-            formatter={(value: number) => [`¥${value.toLocaleString()}`, 'GMV']}
+            formatter={(value: number) => [formatMYR(value), 'GMV']}
           />
           <Line
             type="monotone"

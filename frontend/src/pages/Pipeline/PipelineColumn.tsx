@@ -10,11 +10,11 @@ interface Props {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  '潜在客户': 'border-t-blue-500',
-  '跟进中': 'border-t-cyan-500',
-  '谈判中': 'border-t-orange-500',
-  '已成交': 'border-t-green-500',
-  '已流失': 'border-t-red-500',
+  lead: 'border-t-blue-500',
+  following: 'border-t-cyan-500',
+  negotiating: 'border-t-orange-500',
+  won: 'border-t-green-500',
+  lost: 'border-t-red-500',
 };
 
 export default function PipelineColumn({ stage, onCardClick }: Props) {

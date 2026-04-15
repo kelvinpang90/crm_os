@@ -16,11 +16,11 @@ const KPI_LABELS: Record<string, string> = {
 };
 
 const KPI_CONFIG: Record<string, { prefix?: string; suffix?: string }> = {
-  team_monthly_gmv: { prefix: '¥' },
+  team_monthly_gmv: { prefix: 'RM ' },
   team_target_rate: { suffix: '%' },
-  team_pipeline_value: { prefix: '¥' },
+  team_pipeline_value: { prefix: 'RM ' },
   team_win_rate: { suffix: '%' },
-  avg_sales_cycle_days: { suffix: '天' },
+  avg_sales_cycle_days: { suffix: ' days' },
 };
 
 function currentMonth() {

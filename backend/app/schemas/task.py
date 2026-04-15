@@ -7,14 +7,14 @@ class TaskCreate(BaseModel):
     title: str
     contact_id: Optional[str] = None
     assigned_to: Optional[str] = None
-    priority: str = "中"
+    priority: str = "mid"
     due_date: Optional[date] = None
 
     @field_validator("title")
     @classmethod
     def title_not_empty(cls, v: str) -> str:
         if not v.strip():
-            raise ValueError("任务标题不能为空")
+            raise ValueError("Task title is required")
         return v.strip()
 
 

@@ -44,17 +44,17 @@ async def get_analytics(
     overview_q = await db.execute(
         select(
             func.count(Contact.id).label("total"),
-            func.sum(case((Contact.status == "已成交", 1), else_=0)).label("won"),
-            func.sum(case((Contact.status == "已流失", 1), else_=0)).label("lost"),
+            func.sum(case((Contact.status == "won", 1), else_=0)).label("won"),
+            func.sum(case((Contact.status == "lost", 1), else_=0)).label("lost"),
             func.coalesce(func.sum(
-                case((Contact.status == "已成交", Contact.deal_value), else_=0)
+                case((Contact.status == "won", Contact.deal_value), else_=0)
             ), 0).label("deal_amount"),
         ).where(*scope)
     )
     row = overview_q.one()
     total = row.total or 0
-    won = row.won or 0
-    lost = row.lost or 0
+    won = int(row.won or 0)
+    lost = int(row.lost or 0)
     deal_amount = float(row.deal_amount or 0)
 
     overview = {
@@ -71,7 +71,7 @@ async def get_analytics(
         select(
             func.date_format(Contact.created_at, "%Y-%m-%d").label("dt"),
             func.count(Contact.id).label("total"),
-            func.sum(case((Contact.status == "已成交", 1), else_=0)).label("won"),
+            func.sum(case((Contact.status == "won", 1), else_=0)).label("won"),
         )
         .where(*scope, Contact.created_at >= since)
         .group_by("dt")
@@ -113,14 +113,14 @@ async def get_analytics(
         select(
             Contact.assigned_to,
             func.count(Contact.id).label("total_count"),
-            func.sum(case((Contact.status == "已成交", 1), else_=0)).label("won_count"),
+            func.sum(case((Contact.status == "won", 1), else_=0)).label("won_count"),
             func.coalesce(func.sum(
-                case((Contact.status == "已成交", Contact.deal_value), else_=0)
+                case((Contact.status == "won", Contact.deal_value), else_=0)
             ), 0).label("deal_amount"),
         )
         .where(*scope, Contact.assigned_to.isnot(None))
         .group_by(Contact.assigned_to)
-        .order_by(func.sum(case((Contact.status == "已成交", Contact.deal_value), else_=0)).desc())
+        .order_by(func.sum(case((Contact.status == "won", Contact.deal_value), else_=0)).desc())
     )
     rankings_raw = ranking_q.all()
 

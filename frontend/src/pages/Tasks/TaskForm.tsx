@@ -20,7 +20,7 @@ export default function TaskForm({ initial, onSubmit, submitting }: Props) {
     title: initial?.title || '',
     contact_id: initial?.contact_id || '',
     assigned_to: initial?.assigned_to || currentUser?.id || '',
-    priority: initial?.priority || '中',
+    priority: initial?.priority || 'mid',
     due_date: initial?.due_date || '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -29,7 +29,7 @@ export default function TaskForm({ initial, onSubmit, submitting }: Props) {
 
   useEffect(() => {
     usersApi.getUsers().then((res) => setUsers(res.data.data)).catch(() => {});
-    contactsApi.getContacts({ page: 1, page_size: 200 })
+    contactsApi.getContacts({ page: 1, page_size: 500 })
       .then((res) => setContacts(res.data.data.data))
       .catch(() => {});
   }, []);
@@ -115,7 +115,7 @@ export default function TaskForm({ initial, onSubmit, submitting }: Props) {
             value={form.priority}
             onChange={(e) => set('priority', e.target.value)}
           >
-            {['高', '中', '低'].map((v) => (
+            {['high', 'mid', 'low'].map((v) => (
               <option key={v} value={v}>{v}</option>
             ))}
           </select>

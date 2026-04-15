@@ -33,5 +33,21 @@
     "quoting": "Quoting",
     "negotiating": "Negotiating",
     "won": "Won"
+  },
+  "analytics": {
+    "totalContacts": "Total Contacts",
+    "totalWon": "Won",
+    "totalLost": "Lost",
+    "conversionRate": "Conversion Rate",
+    "totalDealAmount": "Total Revenue",
+    "avgDealValue": "Avg Deal Value",
+    "conversionTrend": "Conversion Trend",
+    "conversionRatePct": "Conv. Rate %",
+    "newContacts": "New Contacts",
+    "channelDistribution": "Channel Distribution",
+    "salesRanking": "Sales Ranking",
+    "salesperson": "Salesperson",
+    "dealCount": "Deals Won",
+    "dealAmount": "Deal Amount"
   }
 }

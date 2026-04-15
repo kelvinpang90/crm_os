@@ -20,14 +20,14 @@ class Contact(Base):
     company: Mapped[str | None] = mapped_column(String(200), nullable=True)
     industry: Mapped[str | None] = mapped_column(String(50), nullable=True)
     status: Mapped[str] = mapped_column(
-        Enum("潜在客户", "跟进中", "谈判中", "已成交", "已流失", name="contact_status"),
+        Enum("lead", "following", "negotiating", "won", "lost", name="contact_status"),
         nullable=False,
-        default="潜在客户",
+        default="lead",
     )
     priority: Mapped[str] = mapped_column(
-        Enum("高", "中", "低", name="contact_priority"),
+        Enum("high", "mid", "low", name="contact_priority"),
         nullable=False,
-        default="中",
+        default="mid",
     )
     deal_value: Mapped[Decimal] = mapped_column(
         DECIMAL(15, 2), nullable=False, default=Decimal("0.00")

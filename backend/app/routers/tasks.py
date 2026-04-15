@@ -57,7 +57,7 @@ async def get_task(
 ):
     data = await task_service.get_task(db, task_id)
     if not data:
-        return fail(message="任务不存在", code=404)
+        return fail(message="Task not found", code=404)
     return ok(data=data)
 
 
@@ -72,7 +72,7 @@ async def update_task(
         db, task_id, body.model_dump(exclude_unset=True)
     )
     if not data:
-        return fail(message="任务不存在", code=404)
+        return fail(message="Task not found", code=404)
     return ok(data=data)
 
 
@@ -84,7 +84,7 @@ async def toggle_task(
 ):
     data = await task_service.toggle_task(db, task_id)
     if not data:
-        return fail(message="任务不存在", code=404)
+        return fail(message="Task not found", code=404)
     return ok(data=data)
 
 
@@ -96,5 +96,5 @@ async def delete_task(
 ):
     ok_ = await task_service.delete_task(db, task_id)
     if not ok_:
-        return fail(message="任务不存在", code=404)
-    return ok(message="删除成功")
+        return fail(message="Task not found", code=404)
+    return ok(message="Deleted successfully")

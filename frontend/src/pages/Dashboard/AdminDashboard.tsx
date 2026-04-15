@@ -12,9 +12,9 @@ const KPI_CONFIG: Record<string, { prefix?: string; suffix?: string }> = {
   new_leads_today: {},
   follow_up_today: {},
   quoting_count: {},
-  monthly_gmv: { prefix: '¥' },
+  monthly_gmv: { prefix: 'RM ' },
   monthly_win_rate: { suffix: '%' },
-  pipeline_value: { prefix: '¥' },
+  pipeline_value: { prefix: 'RM ' },
 };
 
 const KPI_LABELS: Record<string, string> = {

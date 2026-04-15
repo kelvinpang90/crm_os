@@ -8,9 +8,11 @@ interface Props {
 
 export default function KpiCard({ title, value, prefix, suffix, change }: Props) {
   const formatted = typeof value === 'number'
-    ? value >= 10000
-      ? `${(value / 10000).toFixed(1)}万`
-      : value.toLocaleString()
+    ? value >= 1_000_000
+      ? `${(value / 1_000_000).toFixed(1)}M`
+      : value >= 1_000
+        ? `${(value / 1_000).toFixed(1)}K`
+        : value.toLocaleString()
     : value;
 
   return (

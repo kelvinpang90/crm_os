@@ -8,7 +8,7 @@ import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.config import settings
-from app.database import async_session_factory
+from app.database import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 

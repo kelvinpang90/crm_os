@@ -16,7 +16,7 @@ class Activity(Base):
     contact_id: Mapped[str] = mapped_column(String(36), nullable=False)
     user_id: Mapped[str] = mapped_column(String(36), nullable=False)
     type: Mapped[str] = mapped_column(
-        Enum("电话", "邮件", "会面", "WhatsApp", "其他", "状态变更", name="activity_type"),
+        Enum("phone", "email", "meeting", "WhatsApp", "other", "status change", name="activity_type"),
         nullable=False,
     )
     content: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -6,8 +6,14 @@ const INDUSTRIES = [
   '科技/IT', '金融/保险', '医疗/健康', '教育/培训', '零售/电商',
   '制造/工业', '房地产', '咨询/服务', '餐饮/酒店', '物流/供应链',
 ];
-const STATUSES = ['潜在客户', '跟进中', '谈判中', '已成交', '已流失'];
-const PRIORITIES = ['高', '中', '低'];
+const STATUSES = [
+  { value: 'lead',        label: '潜在客户' },
+  { value: 'following',   label: '跟进中' },
+  { value: 'negotiating', label: '谈判中' },
+  { value: 'won',         label: '已成交' },
+  { value: 'lost',        label: '已流失' },
+];
+const PRIORITIES = ['high', 'mid', 'low'];
 
 interface Props {
   initial?: Partial<Contact>;
@@ -21,8 +27,8 @@ export default function ContactForm({ initial, onSubmit, submitting }: Props) {
     name: initial?.name || '',
     company: initial?.company || '',
     industry: initial?.industry || '',
-    status: initial?.status || '潜在客户',
-    priority: initial?.priority || '中',
+    status: initial?.status || 'lead',
+    priority: initial?.priority || 'mid',
     deal_value: initial?.deal_value?.toString() || '0',
     email: initial?.email || '',
     phone: initial?.phone || '',
@@ -90,7 +96,7 @@ export default function ContactForm({ initial, onSubmit, submitting }: Props) {
         </Field>
         <Field label={t('common:status')}>
           <select className="input" value={form.status} onChange={(e) => set('status', e.target.value)}>
-            {STATUSES.map((v) => <option key={v} value={v}>{t(`common:statusLabels.${v}`, v)}</option>)}
+            {STATUSES.map((s) => <option key={s.value} value={s.value}>{t(`common:statusLabels.${s.value}`, s.label)}</option>)}
           </select>
         </Field>
         <Field label={t('common:priority')}>
@@ -128,7 +134,7 @@ export default function ContactForm({ initial, onSubmit, submitting }: Props) {
         </div>
         <input
           className="input"
-          placeholder="输入标签后按回车"
+          placeholder="press enter after input"
           value={tagInput}
           onChange={(e) => setTagInput(e.target.value)}
           onKeyDown={addTag}

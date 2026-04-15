@@ -17,7 +17,7 @@ class Task(Base):
     contact_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     assigned_to: Mapped[str | None] = mapped_column(String(36), nullable=True)
     priority: Mapped[str] = mapped_column(
-        Enum("高", "中", "低", name="task_priority"), nullable=False, default="中"
+        Enum("high", "mid", "low", name="task_priority"), nullable=False, default="mid"
     )
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     is_done: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

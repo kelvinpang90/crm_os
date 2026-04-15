@@ -54,7 +54,7 @@ export default function ContactDetailPanel({ contact, onClose, onEdit, onDelete 
           {/* Info Grid */}
           <div className="space-y-3 text-sm">
             <InfoRow label={t('common:industry')} value={contact.industry} />
-            <InfoRow label={t('dealValue')} value={contact.deal_value ? `¥${Number(contact.deal_value).toLocaleString()}` : '-'} />
+            <InfoRow label={t('dealValue')} value={contact.deal_value ? `RM${Number(contact.deal_value).toLocaleString()}` : '-'} />
             <InfoRow label={t('common:email')} value={contact.email} />
             <InfoRow label={t('common:phone')} value={contact.phone} />
             <InfoRow label={t('common:address')} value={contact.address} />

@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import {
   DndContext,
   DragEndEvent,
-  DragOverEvent,
   PointerSensor,
   useSensor,
   useSensors,
@@ -41,7 +40,19 @@ export default function PipelinePage() {
     if (!over) return;
 
     const contactId = active.id as string;
-    const targetStatus = over.id as string;
+
+    // over.id can be either a column status string or a card UUID
+    // Resolve it to the target column status
+    const validStatuses = stages.map((s) => s.status);
+    let targetStatus = over.id as string;
+    if (!validStatuses.includes(targetStatus)) {
+      // over.id is a card ID — find which column that card belongs to
+      const targetStage = stages.find((s) =>
+        s.contacts.some((c) => c.id === targetStatus)
+      );
+      if (!targetStage) return;
+      targetStatus = targetStage.status;
+    }
 
     // Find which stage the contact currently belongs to
     const sourceStage = stages.find((s) =>

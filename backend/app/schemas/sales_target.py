@@ -13,14 +13,14 @@ class SalesTargetCreate(BaseModel):
     @classmethod
     def valid_month(cls, v: int) -> int:
         if v < 1 or v > 12:
-            raise ValueError("月份必须在 1-12 之间")
+            raise ValueError("Month must be between 1 and 12")
         return v
 
     @field_validator("year")
     @classmethod
     def valid_year(cls, v: int) -> int:
         if v < 2020 or v > 2100:
-            raise ValueError("年份无效")
+            raise ValueError("Invalid year")
         return v
 
 

@@ -193,7 +193,7 @@ async def _strategy_win_rate(db: AsyncSession, eligible: list[str]) -> Optional[
     result = await db.execute(
         select(
             Contact.assigned_to,
-            func.count(case((Contact.status == "已成交", 1))).label("won"),
+            func.count(case((Contact.status == "won", 1))).label("won"),
             func.count(Contact.id).label("total"),
         )
         .where(

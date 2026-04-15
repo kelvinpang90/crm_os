@@ -59,15 +59,15 @@ def upgrade() -> None:
         sa.Column("industry", sa.String(50), nullable=True),
         sa.Column(
             "status",
-            sa.Enum("潜在客户", "跟进中", "谈判中", "已成交", "已流失", name="contact_status"),
+            sa.Enum("lead", "following", "negotiating", "won", "lost", name="contact_status"),
             nullable=False,
-            server_default="潜在客户",
+            server_default="lead",
         ),
         sa.Column(
             "priority",
-            sa.Enum("高", "中", "低", name="contact_priority"),
+            sa.Enum("high", "mid", "low", name="contact_priority"),
             nullable=False,
-            server_default="中",
+            server_default="mid",
         ),
         sa.Column(
             "deal_value", sa.DECIMAL(15, 2), nullable=False, server_default="0.00"
@@ -104,7 +104,7 @@ def upgrade() -> None:
         sa.Column("user_id", sa.String(36), nullable=False),
         sa.Column(
             "type",
-            sa.Enum("电话", "邮件", "会面", "WhatsApp", "其他", "状态变更", name="activity_type"),
+            sa.Enum("phone", "email", "meeting", "WhatsApp", "其他", "status change", name="activity_type"),
             nullable=False,
         ),
         sa.Column("content", sa.Text, nullable=True),
@@ -126,9 +126,9 @@ def upgrade() -> None:
         sa.Column("assigned_to", sa.String(36), nullable=True),
         sa.Column(
             "priority",
-            sa.Enum("高", "中", "低", name="task_priority"),
+            sa.Enum("high", "mid", "low", name="task_priority"),
             nullable=False,
-            server_default="中",
+            server_default="mid",
         ),
         sa.Column("due_date", sa.Date, nullable=True),
         sa.Column("is_done", sa.Boolean, nullable=False, server_default=sa.text("0")),

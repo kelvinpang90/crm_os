@@ -129,7 +129,7 @@ export default function RoutingRuleForm({ initial, onSubmit, submitting }: Props
               value={kwInput}
               onChange={(e) => setKwInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addKeyword(); } }}
-              placeholder="输入关键词后按回车"
+              placeholder=""
             />
             <button type="button" onClick={addKeyword} className="btn-secondary text-sm px-3">+</button>
           </div>

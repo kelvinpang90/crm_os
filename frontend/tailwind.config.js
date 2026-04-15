@@ -15,18 +15,18 @@ export default {
           light: '#a78bfa',
           dark: '#7c3aed',
         },
-        // Dark theme backgrounds
+        // Light theme backgrounds
         dark: {
-          bg: '#080c14',
-          card: '#0d1526',
-          border: '#1e2d4a',
-          hover: '#162038',
+          bg: '#f1f5f9',
+          card: '#ffffff',
+          border: '#e2e8f0',
+          hover: '#e8edf5',
         },
         // Text
         text: {
-          primary: '#f1f5f9',
-          secondary: '#94a3b8',
-          muted: '#64748b',
+          primary: '#0f172a',
+          secondary: '#64748b',
+          muted: '#94a3b8',
         },
         // Status colors
         status: {

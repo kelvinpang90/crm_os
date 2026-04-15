@@ -14,7 +14,7 @@ export interface User {
 
 // === Contact ===
 export type ContactStatus = '潜在客户' | '跟进中' | '谈判中' | '已成交' | '已流失';
-export type Priority = '高' | '中' | '低';
+export type Priority = 'high' | 'mid' | 'low';
 
 export interface Contact {
   id: string;

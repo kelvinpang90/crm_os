@@ -71,24 +71,24 @@ async def authenticate_user(
     """
     # Check lock
     if await is_account_locked(email):
-        return None, "账号已锁定，请10分钟后重试"
+        return None, "Account locked, please retry in 10 minutes"
 
     # Find user
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
 
     if user is None:
-        return None, "账号不存在"
+        return None, "Account not found"
 
     if not user.is_active:
-        return None, "账号已停用"
+        return None, "Account is disabled"
 
     if not verify_password(password, user.password_hash):
         attempts = await increment_login_attempts(email)
         remaining = MAX_LOGIN_ATTEMPTS - attempts
         if remaining <= 0:
-            return None, "密码错误次数过多，账号已锁定10分钟"
-        return None, f"密码错误，还剩{remaining}次机会"
+            return None, "Too many failed attempts, account locked for 10 minutes"
+        return None, f"Incorrect password, {remaining} attempt(s) remaining"
 
     # Success
     await reset_login_attempts(email)
@@ -113,21 +113,21 @@ async def refresh_access_token(
     Returns (new_tokens, error_message).
     """
     if await is_token_blacklisted(refresh_token):
-        return None, "Token已失效，请重新登录"
+        return None, "Token expired, please log in again"
 
     payload = decode_token(refresh_token)
     if payload is None:
-        return None, "无效的Token"
+        return None, "Invalid token"
 
     if payload.get("type") != "refresh":
-        return None, "Token类型错误"
+        return None, "Invalid token type"
 
     user_id = payload.get("sub")
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
     if user is None or not user.is_active:
-        return None, "用户不存在或已停用"
+        return None, "User not found or inactive"
 
     tokens = generate_tokens(user)
     return tokens, None

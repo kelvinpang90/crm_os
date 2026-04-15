@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { authApi, type UserInfo, type LoginParams } from '@/services/auth';
+import { authApi, type UserInfo, type LoginParams, type RegisterParams } from '@/services/auth';
 
 interface AuthState {
   user: UserInfo | null;
@@ -7,6 +7,7 @@ interface AuthState {
   isLoading: boolean;
   error: string | null;
 
+  register: (params: RegisterParams) => Promise<void>;
   login: (params: LoginParams) => Promise<void>;
   logout: () => Promise<void>;
   fetchMe: () => Promise<void>;
@@ -19,6 +20,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthenticated: !!localStorage.getItem('access_token'),
   isLoading: false,
   error: null,
+
+  register: async (params) => {
+    set({ isLoading: true, error: null });
+    try {
+      const res = await authApi.register(params);
+      const { user, access_token, refresh_token } = res.data.data;
+      localStorage.setItem('access_token', access_token);
+      localStorage.setItem('refresh_token', refresh_token);
+      set({ user, isAuthenticated: true, isLoading: false });
+    } catch (err: any) {
+      const message =
+        err.response?.data?.error?.message || '注册失败，请重试';
+      set({ error: message, isLoading: false });
+      throw err;
+    }
+  },
 
   login: async (params) => {
     set({ isLoading: true, error: null });

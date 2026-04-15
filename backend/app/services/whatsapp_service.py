@@ -90,7 +90,7 @@ async def _handle_message(db: AsyncSession, msg: dict) -> None:
             id=str(uuid.uuid4()),
             name=phone,
             phone=phone,
-            status="潜在客户",
+            status="lead",
         )
         db.add(contact)
         await db.flush()

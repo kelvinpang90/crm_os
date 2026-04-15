@@ -94,7 +94,7 @@ async def mark_read(
     result = await db.execute(select(Message).where(Message.id == message_id))
     msg = result.scalar_one_or_none()
     if not msg:
-        return fail(message="消息不存在", code=404)
+        return fail(message="Message not found", code=404)
     msg.is_read = True
     await db.commit()
     return ok(data=_msg_to_dict(msg))
@@ -108,7 +108,7 @@ async def send_whatsapp(
 ):
     data = await whatsapp_service.send_message(db, body.contact_id, body.message)
     if not data:
-        return fail(message="客户不存在或无电话号码", code=400)
+        return fail(message="Contact not found or has no phone number", code=400)
     return ok(data=data)
 
 
@@ -120,7 +120,7 @@ async def send_email(
 ):
     data = await email_service.send_email(db, body.contact_id, body.subject, body.body)
     if not data:
-        return fail(message="客户不存在或无邮箱", code=400)
+        return fail(message="Contact not found or has no email", code=400)
     return ok(data=data)
 
 

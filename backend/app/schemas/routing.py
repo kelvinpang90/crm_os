@@ -15,14 +15,14 @@ class RoutingRuleCreate(BaseModel):
     @classmethod
     def name_not_empty(cls, v: str) -> str:
         if not v.strip():
-            raise ValueError("规则名称不能为空")
+            raise ValueError("Rule name is required")
         return v.strip()
 
     @field_validator("strategy")
     @classmethod
     def valid_strategy(cls, v: str) -> str:
         if v not in ("workload", "region", "win_rate"):
-            raise ValueError("分配策略无效")
+            raise ValueError("Invalid allocation strategy")
         return v
 
 

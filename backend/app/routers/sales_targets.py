@@ -80,7 +80,7 @@ async def create_target(
         )
     )
     if existing.scalar_one_or_none():
-        return fail(message="该用户该月份已有目标", code=400)
+        return fail(message="Target already exists for this user and month", code=400)
 
     target = SalesTarget(
         user_id=body.user_id,
@@ -109,7 +109,7 @@ async def update_target(
     result = await db.execute(select(SalesTarget).where(SalesTarget.id == target_id))
     target = result.scalar_one_or_none()
     if not target:
-        raise HTTPException(status_code=404, detail="目标不存在")
+        raise HTTPException(status_code=404, detail="Target not found")
 
     if body.target_amount is not None:
         target.target_amount = body.target_amount
@@ -133,7 +133,7 @@ async def delete_target(
     result = await db.execute(select(SalesTarget).where(SalesTarget.id == target_id))
     target = result.scalar_one_or_none()
     if not target:
-        raise HTTPException(status_code=404, detail="目标不存在")
+        raise HTTPException(status_code=404, detail="Target not found")
 
     await db.delete(target)
     await db.commit()

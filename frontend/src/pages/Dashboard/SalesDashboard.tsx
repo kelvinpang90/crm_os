@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { formatMYR } from '@/utils/currency';
 import { dashboardApi } from '@/services/dashboard';
 import type { KpiItem, PipelineStage } from '@/services/dashboard';
 import KpiCard from '@/components/charts/KpiCard';
@@ -17,7 +18,7 @@ const KPI_LABELS: Record<string, string> = {
 const KPI_CONFIG: Record<string, { prefix?: string; suffix?: string }> = {
   new_contacts_today: {},
   follow_up_today: {},
-  monthly_gmv: { prefix: '¥' },
+  monthly_gmv: { prefix: 'RM ' },
   monthly_won_count: {},
   target_completion_rate: { suffix: '%' },
 };
@@ -88,9 +89,7 @@ export default function SalesDashboard() {
                 </p>
                 <p className="text-xl font-bold text-text-primary">{stage.count}</p>
                 <p className="text-sm text-text-secondary mt-1">
-                  ¥{stage.amount >= 10000
-                    ? `${(stage.amount / 10000).toFixed(1)}万`
-                    : stage.amount.toLocaleString()}
+                  {formatMYR(stage.amount)}
                 </p>
                 {stage.last_updated && (
                   <p className="text-xs text-text-muted mt-2">

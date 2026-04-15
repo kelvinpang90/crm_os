@@ -112,7 +112,7 @@ async def _process_email(db: AsyncSession, msg: email.message.Message) -> bool:
             id=str(uuid.uuid4()),
             name=from_name or from_addr,
             email=from_addr,
-            status="潜在客户",
+            status="lead",
         )
         db.add(contact)
         await db.flush()

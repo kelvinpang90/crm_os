@@ -1,10 +1,10 @@
-from typing import Optional, List
+from typing import Optional, List, Literal
 from datetime import datetime
 from pydantic import BaseModel
 
 
 class ActivityCreate(BaseModel):
-    type: str
+    type: Literal["phone", "email", "meeting", "WhatsApp", "other", "status change"]
     content: Optional[str] = None
     follow_date: Optional[datetime] = None
 

@@ -9,19 +9,19 @@ interface Props {
 }
 
 const typeColors: Record<string, string> = {
-  '电话': 'bg-blue-500',
-  '邮件': 'bg-green-500',
-  '会面': 'bg-purple-500',
+  'phone': 'bg-blue-500',
+  'email': 'bg-green-500',
+  'meeting': 'bg-purple-500',
   'WhatsApp': 'bg-emerald-500',
-  '其他': 'bg-gray-500',
-  '状态变更': 'bg-yellow-500',
+  'other': 'bg-gray-500',
+  'status change': 'bg-yellow-500',
 };
 
 export default function ActivityTimeline({ contactId }: Props) {
   const { t } = useTranslation('contacts');
   const [activities, setActivities] = useState<Activity[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [formType, setFormType] = useState('电话');
+  const [formType, setFormType] = useState('phone');
   const [formContent, setFormContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -58,7 +58,7 @@ export default function ActivityTimeline({ contactId }: Props) {
       {showForm && (
         <div className="card p-3 mb-4 space-y-2">
           <select value={formType} onChange={(e) => setFormType(e.target.value)} className="input text-sm">
-            {['电话', '邮件', '会面', 'WhatsApp', '其他'].map((v) => (
+            {['phone', 'email', 'meeting', 'WhatsApp', 'other'].map((v) => (
               <option key={v} value={v}>{t(`followTypes.${v}`)}</option>
             ))}
           </select>

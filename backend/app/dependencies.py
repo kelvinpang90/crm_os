@@ -22,20 +22,20 @@ async def get_current_user(
     if payload is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="无效的认证凭证",
+            detail="Invalid credentials",
         )
 
     if payload.get("type") != "access":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token类型错误",
+            detail="Invalid token type",
         )
 
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="无效的Token内容",
+            detail="Invalid token",
         )
 
     result = await db.execute(select(User).where(User.id == user_id))
@@ -44,13 +44,13 @@ async def get_current_user(
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户不存在",
+            detail="User not found",
         )
 
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="账号已停用",
+            detail="Account is disabled",
         )
 
     return user
@@ -63,7 +63,7 @@ def require_role(*roles: str) -> Callable:
         if current_user.role not in roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="无权访问此资源",
+                detail="Permission denied",
             )
         return current_user
 

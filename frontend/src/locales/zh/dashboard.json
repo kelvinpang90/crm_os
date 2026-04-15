@@ -33,5 +33,21 @@
     "quoting": "报价中",
     "negotiating": "谈判中",
     "won": "成交"
+  },
+  "analytics": {
+    "totalContacts": "总客户",
+    "totalWon": "已成交",
+    "totalLost": "已流失",
+    "conversionRate": "转化率",
+    "totalDealAmount": "成交总额",
+    "avgDealValue": "平均单价",
+    "conversionTrend": "转化率趋势",
+    "conversionRatePct": "转化率%",
+    "newContacts": "新增客户",
+    "channelDistribution": "渠道分布",
+    "salesRanking": "销售排名",
+    "salesperson": "销售",
+    "dealCount": "成交单数",
+    "dealAmount": "成交金额"
   }
 }

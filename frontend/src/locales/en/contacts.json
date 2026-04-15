@@ -38,10 +38,11 @@
     "物流/供应链": "Logistics"
   },
   "followTypes": {
-    "电话": "Phone",
-    "邮件": "Email",
-    "会面": "Meeting",
+    "phone": "Phone",
+    "email": "Email",
+    "meeting": "Meeting",
     "WhatsApp": "WhatsApp",
-    "其他": "Other"
+    "other": "Other",
+    "status change": "Status Change"
   }
 }

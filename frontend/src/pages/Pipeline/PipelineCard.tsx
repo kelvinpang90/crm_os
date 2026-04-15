@@ -1,6 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useTranslation } from 'react-i18next';
+import { formatMYR } from '@/utils/currency';
 import Badge from '@/components/common/Badge';
 import type { PipelineStageContact } from '@/services/pipeline';
 
@@ -47,9 +48,7 @@ export default function PipelineCard({ contact, onClick }: Props) {
       <div className="flex items-center justify-between mt-2">
         <Badge value={contact.priority} type="priority" size="sm" />
         <span className="text-xs font-medium text-text-secondary">
-          ¥{contact.deal_value >= 10000
-            ? `${(contact.deal_value / 10000).toFixed(1)}万`
-            : contact.deal_value.toLocaleString()}
+          {formatMYR(contact.deal_value)}
         </span>
       </div>
     </div>

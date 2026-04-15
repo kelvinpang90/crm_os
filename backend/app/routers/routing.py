@@ -43,7 +43,7 @@ async def update_rule(
         db, rule_id, body.model_dump(exclude_unset=True)
     )
     if not data:
-        return fail(message="规则不存在", code=404)
+        return fail(message="Rule not found", code=404)
     return ok(data=data)
 
 
@@ -55,8 +55,8 @@ async def delete_rule(
 ):
     success = await routing_service.delete_rule(db, rule_id)
     if not success:
-        return fail(message="规则不存在", code=404)
-    return ok(message="删除成功")
+        return fail(message="Rule not found", code=404)
+    return ok(message="Deleted successfully")
 
 
 @router.patch("/{rule_id}/toggle")
@@ -67,7 +67,7 @@ async def toggle_rule(
 ):
     data = await routing_service.toggle_rule(db, rule_id)
     if not data:
-        return fail(message="规则不存在", code=404)
+        return fail(message="Rule not found", code=404)
     return ok(data=data)
 
 

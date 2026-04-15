@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { LeaderboardEntry } from '@/services/dashboard';
+import { formatMYR } from '@/utils/currency';
 
 interface Props {
   entries: LeaderboardEntry[];
@@ -50,9 +51,7 @@ export default function LeaderboardTable({ entries, title, month, onMonthChange 
                   </div>
                 </td>
                 <td className="py-2 text-right text-text-primary">
-                  ¥{e.deal_amount >= 10000
-                    ? `${(e.deal_amount / 10000).toFixed(1)}万`
-                    : e.deal_amount.toLocaleString()}
+                  {formatMYR(e.deal_amount)}
                 </td>
                 <td className="py-2 text-right text-text-secondary">{e.deal_count}</td>
                 <td className="py-2 text-right text-text-secondary">{e.win_rate}%</td>

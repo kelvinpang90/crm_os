@@ -27,7 +27,7 @@ class UserCreate(BaseModel):
     @classmethod
     def valid_role(cls, v: str) -> str:
         if v not in ("admin", "manager", "sales"):
-            raise ValueError("角色无效")
+            raise ValueError("Invalid role")
         return v
 
 
@@ -99,7 +99,7 @@ async def create_user(
     # Check duplicate email
     existing = await db.execute(select(User).where(User.email == body.email))
     if existing.scalar_one_or_none():
-        return fail(message="邮箱已存在", code=400)
+        return fail(message="Email already exists", code=400)
 
     user = User(
         name=body.name,
@@ -124,7 +124,7 @@ async def update_user(
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=404, detail="用户不存在")
+        raise HTTPException(status_code=404, detail="User not found")
 
     if body.name is not None:
         user.name = body.name
@@ -134,11 +134,11 @@ async def update_user(
             select(User).where(User.email == body.email, User.id != user_id)
         )
         if dup.scalar_one_or_none():
-            return fail(message="邮箱已存在", code=400)
+            return fail(message="Email already exists", code=400)
         user.email = body.email
     if body.role is not None:
         if body.role not in ("admin", "manager", "sales"):
-            return fail(message="角色无效", code=400)
+            return fail(message="Invalid role", code=400)
         user.role = body.role
     if body.manager_id is not None:
         user.manager_id = body.manager_id
@@ -161,10 +161,10 @@ async def toggle_user(
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=404, detail="用户不存在")
+        raise HTTPException(status_code=404, detail="User not found")
 
     if user.id == current_user.id:
-        return fail(message="不能停用自己的账号", code=400)
+        return fail(message="Cannot deactivate your own account", code=400)
 
     user.is_active = not user.is_active
     await db.commit()
@@ -180,7 +180,7 @@ async def update_language(
 ):
     language = body.get("language")
     if language not in ("zh", "en"):
-        return fail(message="语言必须为 zh 或 en", code=400)
+        return fail(message="Language must be 'zh' or 'en'", code=400)
 
     current_user.language = language
     await db.commit()

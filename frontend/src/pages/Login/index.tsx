@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/store/authStore';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { login, isLoading, error, clearError } = useAuthStore();
 
   const [email, setEmail] = useState('');
@@ -15,12 +17,12 @@ export default function LoginPage() {
   const validate = () => {
     const errors: { email?: string; password?: string } = {};
     if (!email) {
-      errors.email = '请输入邮箱';
+      errors.email = t('enterEmail');
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errors.email = '邮箱格式不正确';
+      errors.email = t('invalidEmail');
     }
     if (!password) {
-      errors.password = '请输入密码';
+      errors.password = t('enterPassword');
     }
     setLocalErrors(errors);
     return Object.keys(errors).length === 0;
@@ -50,12 +52,12 @@ export default function LoginPage() {
           <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
             CRM Pro
           </h1>
-          <p className="mt-2 text-text-secondary">客户关系管理系统</p>
+          <p className="mt-2 text-text-secondary">{t('loginSubtitle')}</p>
         </div>
 
         {/* Login Card */}
         <div className="card p-8">
-          <h2 className="text-xl font-semibold text-text-primary mb-6">登录</h2>
+          <h2 className="text-xl font-semibold text-text-primary mb-6">{t('loginTitle')}</h2>
 
           {/* Server error */}
           {error && (
@@ -68,12 +70,12 @@ export default function LoginPage() {
             {/* Email */}
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1.5">
-                邮箱
+                {t('email')}
               </label>
               <input
                 type="email"
                 className={`input ${localErrors.email ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
-                placeholder="请输入邮箱地址"
+                placeholder={t('emailPlaceholder')}
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
@@ -89,13 +91,13 @@ export default function LoginPage() {
             {/* Password */}
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1.5">
-                密码
+                {t('password')}
               </label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
                   className={`input pr-10 ${localErrors.password ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
-                  placeholder="请输入密码"
+                  placeholder={t('passwordPlaceholder')}
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
@@ -135,7 +137,7 @@ export default function LoginPage() {
                   onChange={(e) => setRememberMe(e.target.checked)}
                   className="w-4 h-4 rounded border-dark-border bg-dark-bg text-primary focus:ring-primary focus:ring-offset-0"
                 />
-                <span className="text-sm text-text-secondary">记住我</span>
+                <span className="text-sm text-text-secondary">{t('rememberMe')}</span>
               </label>
             </div>
 
@@ -151,14 +153,22 @@ export default function LoginPage() {
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
               ) : (
-                '登录'
+                t('login')
               )}
             </button>
           </form>
         </div>
 
+        {/* Register link */}
+        <p className="text-center text-sm text-text-secondary mt-6">
+          {t('register.noAccount')}{' '}
+          <Link to="/register" className="text-primary hover:text-primary/80 font-medium">
+            {t('register.goRegister')}
+          </Link>
+        </p>
+
         {/* Footer hint */}
-        <p className="text-center text-text-muted text-xs mt-6">
+        <p className="text-center text-text-muted text-xs mt-4">
           CRM Pro v1.0 &copy; 2026
         </p>
       </div>

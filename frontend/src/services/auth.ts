@@ -24,6 +24,13 @@ export interface UserInfo {
   updated_at: string;
 }
 
+export interface RegisterParams {
+  name: string;
+  email: string;
+  password: string;
+  confirm_password: string;
+}
+
 export interface LoginResponse {
   user: UserInfo;
   access_token: string;
@@ -32,6 +39,12 @@ export interface LoginResponse {
 }
 
 export const authApi = {
+  register: (params: RegisterParams) =>
+    api.post<{ success: boolean; data: LoginResponse; message: string }>(
+      '/auth/register',
+      params
+    ),
+
   login: (params: LoginParams) =>
     api.post<{ success: boolean; data: LoginResponse; message: string }>(
       '/auth/login',

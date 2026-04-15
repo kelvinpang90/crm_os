@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { FunnelStage } from '@/services/dashboard';
+import { formatMYR } from '@/utils/currency';
 
 interface Props {
   stages: FunnelStage[];
@@ -31,7 +32,7 @@ export default function FunnelChart({ stages, title }: Props) {
               <div className="flex items-center justify-between text-xs mb-1">
                 <span className="text-text-secondary">{t(`funnelStages.${s.stage}`, s.stage)}</span>
                 <span className="text-text-muted">
-                  {s.count} · ¥{s.amount >= 10000 ? `${(s.amount / 10000).toFixed(1)}万` : s.amount.toLocaleString()}
+                  {s.count} · {formatMYR(s.amount)}
                 </span>
               </div>
               <div className="h-5 bg-dark-hover rounded-full overflow-hidden">

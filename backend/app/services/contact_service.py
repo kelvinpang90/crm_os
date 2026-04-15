@@ -9,10 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.contact import Contact
 from app.models.activity import Activity
 from app.models.user import User
+from app.services import routing_service
 
 
-VALID_STATUSES = {"潜在客户", "跟进中", "谈判中", "已成交", "已流失"}
-VALID_PRIORITIES = {"高", "中", "低"}
+VALID_STATUSES = {"lead", "following", "negotiating", "won", "lost"}
+VALID_PRIORITIES = {"high", "mid", "low"}
 
 
 async def list_contacts(
@@ -116,8 +117,8 @@ async def create_contact(
         name=data["name"],
         company=data.get("company"),
         industry=data.get("industry"),
-        status=data.get("status", "潜在客户"),
-        priority=data.get("priority", "中"),
+        status=data.get("status", "lead"),
+        priority=data.get("priority", "mid"),
         deal_value=Decimal(str(data.get("deal_value", "0.00"))),
         email=data.get("email"),
         phone=data.get("phone"),
@@ -128,6 +129,14 @@ async def create_contact(
     )
     db.add(contact)
     await db.flush()
+
+    # Auto-assign via routing if no explicit assignee
+    if not contact.assigned_to:
+        assigned = await routing_service.assign_contact(db, contact)
+        if assigned:
+            contact.assigned_to = assigned
+            await db.flush()
+
     return _contact_to_dict(contact)
 
 
@@ -157,8 +166,8 @@ async def update_contact(
             id=str(uuid.uuid4()),
             contact_id=contact_id,
             user_id=current_user.id,
-            type="状态变更",
-            content=f"状态从「{old_status}」变更为「{data['status']}」",
+            type="status change",
+            content=f"Status changed from {old_status} to {data['status']}",
             follow_date=datetime.utcnow(),
         )
         db.add(activity)
@@ -200,27 +209,27 @@ async def import_contacts(db: AsyncSession, rows: list[dict], current_user: User
         row_errors = []
         name = (row.get("name") or "").strip()
         if not name:
-            row_errors.append({"row": i, "field": "name", "message": "姓名不能为空"})
+            row_errors.append({"row": i, "field": "name", "message": "Name is required"})
 
         email = (row.get("email") or "").strip()
         if email and "@" not in email:
-            row_errors.append({"row": i, "field": "email", "message": "邮箱格式不正确"})
+            row_errors.append({"row": i, "field": "email", "message": "Invalid email format"})
 
-        status = (row.get("status") or "").strip() or "潜在客户"
+        status = (row.get("status") or "").strip() or "lead"
         if status not in VALID_STATUSES:
-            row_errors.append({"row": i, "field": "status", "message": f"无效状态: {status}"})
-            status = "潜在客户"
+            row_errors.append({"row": i, "field": "status", "message": f"Invalid status: {status}"})
+            status = "lead"
 
-        priority = (row.get("priority") or "").strip() or "中"
+        priority = (row.get("priority") or "").strip() or "mid"
         if priority not in VALID_PRIORITIES:
-            priority = "中"
+            priority = "mid"
 
         assigned_email = (row.get("assigned_to_email") or "").strip()
         assigned_user_id = None
         if assigned_email:
             assigned_user_id = active_users.get(assigned_email)
             if not assigned_user_id:
-                row_errors.append({"row": i, "field": "assigned_to_email", "message": "销售账号不存在或已停用"})
+                row_errors.append({"row": i, "field": "assigned_to_email", "message": "Sales account not found or inactive"})
 
         if row_errors:
             errors.extend(row_errors)
@@ -239,7 +248,7 @@ async def import_contacts(db: AsyncSession, rows: list[dict], current_user: User
             )
             contact = existing.scalar_one_or_none()
             if not contact:
-                errors.append({"row": i, "field": "id", "message": f"客户ID不存在: {contact_id}"})
+                errors.append({"row": i, "field": "id", "message": f"Contact not found: {contact_id}"})
                 skipped += 1
                 continue
 
@@ -306,7 +315,7 @@ async def _validate_assigned_user(db: AsyncSession, user_id: str) -> None:
     user = result.scalar_one_or_none()
     if not user:
         from fastapi import HTTPException
-        raise HTTPException(status_code=400, detail="负责销售不存在或已停用")
+        raise HTTPException(status_code=400, detail="Assigned sales user not found or inactive")
 
 
 def _contact_to_dict(contact: Contact) -> dict:

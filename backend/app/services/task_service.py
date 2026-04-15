@@ -57,7 +57,7 @@ async def list_tasks(
     total = (await db.execute(count_q)).scalar() or 0
 
     # Paginate
-    query = query.order_by(Task.is_done.asc(), Task.due_date.asc().nullslast(), Task.created_at.desc())
+    query = query.order_by(Task.is_done.asc(), func.isnull(Task.due_date).asc(), Task.due_date.asc(), Task.created_at.desc())
     query = query.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(query)
     tasks = result.scalars().all()
@@ -103,7 +103,7 @@ async def create_task(db: AsyncSession, data: dict, current_user: User) -> dict:
         title=data["title"],
         contact_id=data.get("contact_id"),
         assigned_to=data.get("assigned_to") or current_user.id,
-        priority=data.get("priority", "中"),
+        priority=data.get("priority", "mid"),
         due_date=data.get("due_date"),
     )
     db.add(task)

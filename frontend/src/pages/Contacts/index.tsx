@@ -124,7 +124,7 @@ export default function ContactsPage() {
                     <span className="font-medium text-text-primary truncate">{c.name}</span>
                     <Badge value={c.status} type="status" size="sm" />
                   </div>
-                  <p className="text-xs text-text-muted truncate">{c.company || '-'} · ¥{Number(c.deal_value).toLocaleString()}</p>
+                  <p className="text-xs text-text-muted truncate">{c.company || '-'} · RM{Number(c.deal_value).toLocaleString()}</p>
                 </div>
               </div>
             </div>
@@ -142,7 +142,7 @@ export default function ContactsPage() {
                 <th className="pb-2 font-medium">{t('common:status')}</th>
                 <th className="pb-2 font-medium">{t('common:priority')}</th>
                 <th className="pb-2 font-medium text-right">{t('dealValue')}</th>
-                <th className="pb-2 font-medium">{t('lastContact')}</th>
+                <th className="pb-2 font-medium pl-6">{t('lastContact')}</th>
               </tr>
             </thead>
             <tbody>
@@ -164,8 +164,8 @@ export default function ContactsPage() {
                   <td className="py-3 text-text-secondary">{c.industry || '-'}</td>
                   <td className="py-3"><Badge value={c.status} type="status" /></td>
                   <td className="py-3"><Badge value={c.priority} type="priority" /></td>
-                  <td className="py-3 text-right text-text-primary">¥{Number(c.deal_value).toLocaleString()}</td>
-                  <td className="py-3 text-text-muted">{c.last_contact || '-'}</td>
+                  <td className="py-3 text-right text-text-primary">RM{Number(c.deal_value).toLocaleString()}</td>
+                  <td className="py-3 pl-6 text-text-muted">{c.last_contact || '-'}</td>
                 </tr>
               ))}
             </tbody>

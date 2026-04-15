@@ -8,8 +8,8 @@ class ContactCreate(BaseModel):
     name: str
     company: Optional[str] = None
     industry: Optional[str] = None
-    status: str = "潜在客户"
-    priority: str = "中"
+    status: str = "lead"
+    priority: str = "mid"
     deal_value: Decimal = Decimal("0.00")
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
@@ -22,14 +22,14 @@ class ContactCreate(BaseModel):
     @classmethod
     def name_not_empty(cls, v: str) -> str:
         if not v.strip():
-            raise ValueError("姓名不能为空")
+            raise ValueError("Name is required")
         return v.strip()
 
     @field_validator("deal_value")
     @classmethod
     def deal_value_positive(cls, v: Decimal) -> Decimal:
         if v < 0:
-            raise ValueError("商机金额必须为正数")
+            raise ValueError("Deal value must be positive")
         return v
 
 

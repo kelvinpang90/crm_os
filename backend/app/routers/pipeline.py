@@ -12,7 +12,7 @@ from app.utils.response import ok
 
 router = APIRouter()
 
-STAGES = ["潜在客户", "跟进中", "谈判中", "已成交", "已流失"]
+STAGES = ["lead", "following", "negotiating", "won", "lost"]
 
 
 @router.get("")

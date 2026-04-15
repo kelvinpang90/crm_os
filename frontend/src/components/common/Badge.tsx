@@ -10,9 +10,9 @@ const statusStyles: Record<string, { text: string; bg: string }> = {
 };
 
 const priorityStyles: Record<string, { text: string; bg: string }> = {
-  '高': { text: 'text-[#f87171]', bg: 'bg-[rgba(239,68,68,0.15)]' },
-  '中': { text: 'text-[#fbbf24]', bg: 'bg-[rgba(245,158,11,0.15)]' },
-  '低': { text: 'text-[#60a5fa]', bg: 'bg-[rgba(59,130,246,0.15)]' },
+  'high': { text: 'text-[#f87171]', bg: 'bg-[rgba(239,68,68,0.15)]' },
+  'mid': { text: 'text-[#fbbf24]', bg: 'bg-[rgba(245,158,11,0.15)]' },
+  'low': { text: 'text-[#60a5fa]', bg: 'bg-[rgba(59,130,246,0.15)]' },
 };
 
 interface BadgeProps {
