@@ -13,7 +13,7 @@ export interface User {
 }
 
 // === Contact ===
-export type ContactStatus = '潜在客户' | '跟进中' | '谈判中' | '已成交' | '已流失';
+export type ContactStatus = 'lead' | 'following' | 'negotiating' | 'won' | 'lost';
 export type Priority = 'high' | 'mid' | 'low';
 
 export interface Contact {
@@ -29,6 +29,7 @@ export interface Contact {
   address: string | null;
   notes: string | null;
   assigned_to: string | null;
+  assigned_to_name?: string | null;
   last_contact: string | null;
   tags: string[] | null;
   deleted_at: string | null;

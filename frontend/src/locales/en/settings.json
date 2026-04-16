@@ -34,7 +34,9 @@
     "title": "Sales Targets",
     "year": "Year",
     "month": "Month",
-    "targetAmount": "Target Amount",
-    "targetCount": "Target Count"
+"targetAmount": "Target Amount",
+    "targetCount": "Target Count",
+    "salesRep": "Sales Rep",
+    "selectSalesRep": "-- Select Sales Rep --"
   }
 }

@@ -34,7 +34,9 @@
     "title": "销售目标",
     "year": "年份",
     "month": "月份",
-    "targetAmount": "目标金额",
-    "targetCount": "目标单数"
+"targetAmount": "目标金额",
+    "targetCount": "目标单数",
+    "salesRep": "销售",
+    "selectSalesRep": "-- 选择销售 --"
   }
 }

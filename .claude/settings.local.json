@@ -8,7 +8,13 @@
       "Bash(sed -n '527,540p' E:/projects/crm_os/requirements.md)",
       "Bash(sed -n '800,810p' E:/projects/crm_os/requirements.md)",
       "Bash(docker-compose up:*)",
-      "Bash(docker-compose logs:*)"
+      "Bash(docker-compose logs:*)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('seed.py'\\).read\\(\\)\\); print\\('Syntax OK'\\)\")",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('seed.py'\\).read\\(\\)\\); print\\('Syntax OK'\\)\")",
+      "Read(//usr/**)",
+      "Read(//usr/local/**)",
+      "Bash(command -v py)",
+      "Bash(py -c \"import ast; ast.parse\\(open\\('seed.py'\\).read\\(\\)\\); print\\('Syntax OK'\\)\")"
     ]
   }
 }

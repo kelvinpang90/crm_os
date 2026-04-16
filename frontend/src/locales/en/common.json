@@ -56,6 +56,12 @@
     "won": "Won",
     "lost": "Lost"
   },
+  "priorityLabels": {
+    "high": "High",
+    "mid": "Medium",
+    "low": "Low"
+  },
+  "mustBePositive": "Must be a positive number",
   "register": {
     "title": "Create Account",
     "subtitle": "Create your CRM account",

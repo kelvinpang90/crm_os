@@ -13,11 +13,10 @@ import ContactDetailPanel from './ContactDetailPanel';
 import ContactForm from './ContactForm';
 import type { Contact } from '@/types';
 
-const STATUSES = ['潜在客户', '跟进中', '谈判中', '已成交', '已流失'];
-const INDUSTRIES = [
-  '科技/IT', '金融/保险', '医疗/健康', '教育/培训', '零售/电商',
-  '制造/工业', '房地产', '咨询/服务', '餐饮/酒店', '物流/供应链',
-];
+const CONTACT_STATUSES = ['lead', 'following', 'negotiating', 'won', 'lost'] as const;
+const CONTACT_PRIORITIES = ['high', 'mid', 'low'] as const;
+
+type SortField = 'deal_value' | 'last_contact';
 
 export default function ContactsPage() {
   const { t } = useTranslation('contacts');
@@ -28,6 +27,8 @@ export default function ContactsPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [params, setParams] = useState<ContactListParams>({ page: 1, page_size: 20 });
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [selected, setSelected] = useState<Contact | null>(null);
   const [editing, setEditing] = useState<Contact | null>(null);
   const [deleting, setDeleting] = useState<Contact | null>(null);
@@ -65,6 +66,18 @@ export default function ContactsPage() {
     } catch { /* ignore */ }
   };
 
+  const handleSort = (field: SortField) => {
+    const nextOrder = sortField === field && sortOrder === 'desc' ? 'asc' : 'desc';
+    setSortField(field);
+    setSortOrder(nextOrder);
+    setParams((p) => ({ ...p, sort_by: field, order: nextOrder, page: 1 }));
+  };
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return <span className="text-text-muted/40 ml-1">↕</span>;
+    return <span className="text-primary ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>;
+  };
+
   return (
     <div>
       {/* Header */}
@@ -89,15 +102,19 @@ export default function ContactsPage() {
           onChange={(e) => setParams((p) => ({ ...p, status: e.target.value || undefined, page: 1 }))}
         >
           <option value="">{t('common:all')} {t('common:status')}</option>
-          {STATUSES.map((v) => <option key={v} value={v}>{t(`common:statusLabels.${v}`, v)}</option>)}
+          {CONTACT_STATUSES.map((v) => (
+            <option key={v} value={v}>{t(`common:statusLabels.${v}`)}</option>
+          ))}
         </select>
         <select
           className="input w-auto"
-          value={params.industry || ''}
-          onChange={(e) => setParams((p) => ({ ...p, industry: e.target.value || undefined, page: 1 }))}
+          value={params.priority || ''}
+          onChange={(e) => setParams((p) => ({ ...p, priority: e.target.value || undefined, page: 1 }))}
         >
-          <option value="">{t('common:all')} {t('common:industry')}</option>
-          {INDUSTRIES.map((v) => <option key={v} value={v}>{t(`industries.${v}`, v)}</option>)}
+          <option value="">{t('common:all')} {t('common:priority')}</option>
+          {CONTACT_PRIORITIES.map((v) => (
+            <option key={v} value={v}>{t(`common:priorityLabels.${v}`)}</option>
+          ))}
         </select>
       </div>
 
@@ -138,11 +155,21 @@ export default function ContactsPage() {
               <tr className="border-b border-dark-border text-text-muted text-left">
                 <th className="pb-2 font-medium">{t('common:name')}</th>
                 <th className="pb-2 font-medium">{t('common:company')}</th>
-                <th className="pb-2 font-medium">{t('common:industry')}</th>
+                <th className="pb-2 font-medium">{t('assignedTo')}</th>
                 <th className="pb-2 font-medium">{t('common:status')}</th>
                 <th className="pb-2 font-medium">{t('common:priority')}</th>
-                <th className="pb-2 font-medium text-right">{t('dealValue')}</th>
-                <th className="pb-2 font-medium pl-6">{t('lastContact')}</th>
+                <th
+                  className="pb-2 font-medium text-right cursor-pointer select-none hover:text-text-primary"
+                  onClick={() => handleSort('deal_value')}
+                >
+                  {t('dealValue')}<SortIcon field="deal_value" />
+                </th>
+                <th
+                  className="pb-2 font-medium pl-6 cursor-pointer select-none hover:text-text-primary"
+                  onClick={() => handleSort('last_contact')}
+                >
+                  {t('lastContact')}<SortIcon field="last_contact" />
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -161,7 +188,7 @@ export default function ContactsPage() {
                     </div>
                   </td>
                   <td className="py-3 text-text-secondary">{c.company || '-'}</td>
-                  <td className="py-3 text-text-secondary">{c.industry || '-'}</td>
+                  <td className="py-3 text-text-secondary">{c.assigned_to_name || '-'}</td>
                   <td className="py-3"><Badge value={c.status} type="status" /></td>
                   <td className="py-3"><Badge value={c.priority} type="priority" /></td>
                   <td className="py-3 text-right text-text-primary">RM{Number(c.deal_value).toLocaleString()}</td>

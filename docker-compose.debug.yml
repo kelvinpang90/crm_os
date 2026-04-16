@@ -1,0 +1,27 @@
+# Debug override for docker-compose.yml
+# Usage:
+#   docker-compose -f docker-compose.yml -f docker-compose.debug.yml up mysql redis backend_1
+#
+# Then in PyCharm:
+#   Run -> Edit Configurations -> + -> Python Debug Server
+#   Host: localhost   Port: 5678
+#   Path mapping:  E:\projects\crm_os\backend  =>  /app
+#
+# Notes:
+# - Only backend_1 is exposed for debugging. Skip backend_2 / nginx to avoid
+#   the load balancer routing requests to a non-debuggable instance.
+# - Source is bind-mounted so edits reload instantly (uvicorn --reload).
+# - Add `--wait-for-client` after `--listen 0.0.0.0:5678` if you want the app
+#   to block on startup until PyCharm attaches.
+
+services:
+  backend_1:
+    ports:
+      - "8000:8000"
+      - "5678:5678"
+    volumes:
+      - ./backend:/app
+    command: >
+      sh -c "pip install --no-cache-dir debugpy &&
+      python -m debugpy --listen 0.0.0.0:5678
+      -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"

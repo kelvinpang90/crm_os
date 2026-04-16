@@ -56,6 +56,12 @@
     "won": "已成交",
     "lost": "已流失"
   },
+  "priorityLabels": {
+    "high": "高",
+    "mid": "中",
+    "low": "低"
+  },
+  "mustBePositive": "必须为正数",
   "register": {
     "title": "注册账号",
     "subtitle": "创建你的 CRM 账号",

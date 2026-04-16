@@ -8,8 +8,10 @@ import Modal from '@/components/common/Modal';
 const currentYear = new Date().getFullYear();
 
 export default function TargetsPage() {
-  const { t } = useTranslation('settings');
+  const { t, i18n } = useTranslation('settings');
   const tc = useTranslation().t;
+  const monthName = (m: number) =>
+    new Intl.DateTimeFormat(i18n.language, { month: 'long' }).format(new Date(2000, m - 1, 1));
   const [targets, setTargets] = useState<SalesTargetItem[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [year, setYear] = useState(currentYear);
@@ -94,7 +96,7 @@ export default function TargetsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-text-muted border-b border-dark-border">
-                <th className="text-left py-3 px-4">销售</th>
+                <th className="text-left py-3 px-4">{t('salesTargets.salesRep')}</th>
                 <th className="text-center py-3 px-4">{t('salesTargets.month')}</th>
                 <th className="text-right py-3 px-4">{t('salesTargets.targetAmount')}</th>
                 <th className="text-right py-3 px-4">{t('salesTargets.targetCount')}</th>
@@ -105,7 +107,7 @@ export default function TargetsPage() {
               {targets.map((tgt) => (
                 <tr key={tgt.id} className="border-b border-dark-border/50 hover:bg-dark-hover">
                   <td className="py-3 px-4 text-text-primary">{tgt.user_name || tgt.user_id}</td>
-                  <td className="py-3 px-4 text-center text-text-secondary">{tgt.month}月</td>
+                  <td className="py-3 px-4 text-center text-text-secondary">{monthName(tgt.month)}</td>
                   <td className="py-3 px-4 text-right text-text-secondary">
                     ¥{tgt.target_amount.toLocaleString()}
                   </td>
@@ -128,9 +130,9 @@ export default function TargetsPage() {
       <Modal open={showForm} onClose={() => setShowForm(false)} title={t('salesTargets.title')}>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm text-text-secondary mb-1">销售</label>
+            <label className="block text-sm text-text-secondary mb-1">{t('salesTargets.salesRep')}</label>
             <select className="input w-full" value={formUserId} onChange={(e) => setFormUserId(e.target.value)}>
-              <option value="">-- 选择销售 --</option>
+              <option value="">{t('salesTargets.selectSalesRep')}</option>
               {users.map((u) => (
                 <option key={u.id} value={u.id}>{u.name}</option>
               ))}
@@ -140,7 +142,7 @@ export default function TargetsPage() {
             <label className="block text-sm text-text-secondary mb-1">{t('salesTargets.month')}</label>
             <select className="input w-full" value={formMonth} onChange={(e) => setFormMonth(Number(e.target.value))}>
               {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                <option key={m} value={m}>{m}月</option>
+                <option key={m} value={m}>{monthName(m)}</option>
               ))}
             </select>
           </div>

@@ -48,7 +48,7 @@ export default function ContactForm({ initial, onSubmit, submitting }: Props) {
     const e: Record<string, string> = {};
     if (!form.name.trim()) e.name = t('common:required');
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = t('common:invalidEmail');
-    if (form.deal_value && Number(form.deal_value) < 0) e.deal_value = '必须为正数';
+    if (form.deal_value && Number(form.deal_value) < 0) e.deal_value = t('common:mustBePositive');
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -101,7 +101,7 @@ export default function ContactForm({ initial, onSubmit, submitting }: Props) {
         </Field>
         <Field label={t('common:priority')}>
           <select className="input" value={form.priority} onChange={(e) => set('priority', e.target.value)}>
-            {PRIORITIES.map((v) => <option key={v} value={v}>{v}</option>)}
+            {PRIORITIES.map((v) => <option key={v} value={v}>{t(`common:priorityLabels.${v}`, v)}</option>)}
           </select>
         </Field>
         <Field label={t('dealValue')} error={errors.deal_value}>
