@@ -5,9 +5,8 @@ from pydantic import BaseModel
 class ConversionPoint(BaseModel):
     """转化率趋势数据点"""
     date: str
-    total: int
+    new_contacts: int
     won: int
-    rate: float
 
 
 class ChannelDistribution(BaseModel):

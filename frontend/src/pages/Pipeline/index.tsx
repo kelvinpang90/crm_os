@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   DndContext,
@@ -10,13 +9,12 @@ import {
   closestCorners,
 } from '@dnd-kit/core';
 import { pipelineApi, type PipelineStage } from '@/services/pipeline';
-import type { ContactStatus } from '@/types';
+import type { DealStatus } from '@/types';
 import PipelineColumn from './PipelineColumn';
 import Skeleton from '@/components/common/Skeleton';
 
 export default function PipelinePage() {
   const { t } = useTranslation('common');
-  const navigate = useNavigate();
   const [stages, setStages] = useState<PipelineStage[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -39,49 +37,45 @@ export default function PipelinePage() {
     const { active, over } = event;
     if (!over) return;
 
-    const contactId = active.id as string;
+    const dealId = active.id as string;
 
-    // over.id can be either a column status string or a card UUID
-    // Resolve it to the target column status
     const validStatuses = stages.map((s) => s.status);
     let targetStatus = over.id as string;
     if (!validStatuses.includes(targetStatus)) {
-      // over.id is a card ID — find which column that card belongs to
       const targetStage = stages.find((s) =>
-        s.contacts.some((c) => c.id === targetStatus)
+        s.deals.some((d) => d.id === targetStatus)
       );
       if (!targetStage) return;
       targetStatus = targetStage.status;
     }
 
-    // Find which stage the contact currently belongs to
     const sourceStage = stages.find((s) =>
-      s.contacts.some((c) => c.id === contactId)
+      s.deals.some((d) => d.id === dealId)
     );
     if (!sourceStage || sourceStage.status === targetStatus) return;
 
-    // Optimistic update
-    const contact = sourceStage.contacts.find((c) => c.id === contactId);
-    if (!contact) return;
+    const deal = sourceStage.deals.find((d) => d.id === dealId);
+    if (!deal) return;
 
+    // Optimistic update
     setStages((prev) =>
       prev.map((s) => {
         if (s.status === sourceStage.status) {
-          const filtered = s.contacts.filter((c) => c.id !== contactId);
+          const filtered = s.deals.filter((d) => d.id !== dealId);
           return {
             ...s,
             count: filtered.length,
-            total_value: s.total_value - contact.deal_value,
-            contacts: filtered,
+            total_value: s.total_value - deal.amount,
+            deals: filtered,
           };
         }
         if (s.status === targetStatus) {
-          const updated = { ...contact, status: targetStatus };
+          const updated = { ...deal, status: targetStatus };
           return {
             ...s,
             count: s.count + 1,
-            total_value: s.total_value + contact.deal_value,
-            contacts: [...s.contacts, updated],
+            total_value: s.total_value + deal.amount,
+            deals: [...s.deals, updated],
           };
         }
         return s;
@@ -89,15 +83,10 @@ export default function PipelinePage() {
     );
 
     try {
-      await pipelineApi.updateContactStatus(contactId, targetStatus as ContactStatus);
+      await pipelineApi.updateDealStatus(dealId, targetStatus as DealStatus);
     } catch {
-      // Rollback on failure
       load();
     }
-  };
-
-  const handleCardClick = (contactId: string) => {
-    navigate(`/contacts?contact_id=${contactId}`);
   };
 
   return (
@@ -117,7 +106,6 @@ export default function PipelinePage() {
               <PipelineColumn
                 key={stage.status}
                 stage={stage}
-                onCardClick={handleCardClick}
               />
             ))}
           </div>

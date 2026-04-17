@@ -1,12 +1,12 @@
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useTranslation } from 'react-i18next';
+import { formatMYR } from '@/utils/currency';
 import PipelineCard from './PipelineCard';
 import type { PipelineStage } from '@/services/pipeline';
 
 interface Props {
   stage: PipelineStage;
-  onCardClick?: (contactId: string) => void;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -17,11 +17,11 @@ const STATUS_COLORS: Record<string, string> = {
   lost: 'border-t-red-500',
 };
 
-export default function PipelineColumn({ stage, onCardClick }: Props) {
+export default function PipelineColumn({ stage }: Props) {
   const { t } = useTranslation('common');
   const { setNodeRef, isOver } = useDroppable({ id: stage.status });
   const colorClass = STATUS_COLORS[stage.status] || 'border-t-gray-500';
-  const ids = stage.contacts.map((c) => c.id);
+  const ids = stage.deals.map((d) => d.id);
 
   return (
     <div
@@ -41,24 +41,18 @@ export default function PipelineColumn({ stage, onCardClick }: Props) {
           </span>
         </div>
         <p className="text-xs text-text-muted mt-1">
-          ¥{stage.total_value >= 10000
-            ? `${(stage.total_value / 10000).toFixed(1)}万`
-            : stage.total_value.toLocaleString()}
+          {formatMYR(stage.total_value)}
         </p>
       </div>
 
       {/* Cards */}
       <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[calc(100vh-260px)]">
         <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-          {stage.contacts.map((c) => (
-            <PipelineCard
-              key={c.id}
-              contact={c}
-              onClick={() => onCardClick?.(c.id)}
-            />
+          {stage.deals.map((d) => (
+            <PipelineCard key={d.id} deal={d} />
           ))}
         </SortableContext>
-        {stage.contacts.length === 0 && (
+        {stage.deals.length === 0 && (
           <p className="text-xs text-text-muted text-center py-4">--</p>
         )}
       </div>

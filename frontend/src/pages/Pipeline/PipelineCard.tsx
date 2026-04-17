@@ -1,17 +1,14 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useTranslation } from 'react-i18next';
 import { formatMYR } from '@/utils/currency';
 import Badge from '@/components/common/Badge';
-import type { PipelineStageContact } from '@/services/pipeline';
+import type { PipelineStageDeal } from '@/services/pipeline';
 
 interface Props {
-  contact: PipelineStageContact;
-  onClick?: () => void;
+  deal: PipelineStageDeal;
 }
 
-export default function PipelineCard({ contact, onClick }: Props) {
-  const { t } = useTranslation('common');
+export default function PipelineCard({ deal }: Props) {
   const {
     attributes,
     listeners,
@@ -19,7 +16,7 @@ export default function PipelineCard({ contact, onClick }: Props) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: contact.id });
+  } = useSortable({ id: deal.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -33,22 +30,24 @@ export default function PipelineCard({ contact, onClick }: Props) {
       style={style}
       {...attributes}
       {...listeners}
-      onClick={onClick}
       className="bg-dark-bg border border-dark-border rounded-lg p-3 cursor-grab active:cursor-grabbing hover:border-primary/30 transition-colors"
     >
       <div className="flex items-center gap-2 mb-1">
         <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-[10px] font-bold shrink-0">
-          {contact.name.charAt(0)}
+          {deal.contact_name.charAt(0)}
         </div>
-        <span className="text-sm font-medium text-text-primary truncate">{contact.name}</span>
+        <span className="text-sm font-medium text-text-primary truncate">{deal.contact_name}</span>
       </div>
-      {contact.company && (
-        <p className="text-xs text-text-muted truncate mb-1">{contact.company}</p>
+      {deal.title && (
+        <p className="text-xs text-primary/80 truncate mb-0.5">{deal.title}</p>
+      )}
+      {deal.contact_company && (
+        <p className="text-xs text-text-muted truncate mb-1">{deal.contact_company}</p>
       )}
       <div className="flex items-center justify-between mt-2">
-        <Badge value={contact.priority} type="priority" size="sm" />
+        <Badge value={deal.priority} type="priority" size="sm" />
         <span className="text-xs font-medium text-text-secondary">
-          {formatMYR(contact.deal_value)}
+          {formatMYR(deal.amount)}
         </span>
       </div>
     </div>

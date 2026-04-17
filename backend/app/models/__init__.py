@@ -1,6 +1,7 @@
 from app.database import Base
 from app.models.user import User
 from app.models.contact import Contact
+from app.models.deal import Deal
 from app.models.activity import Activity
 from app.models.task import Task
 from app.models.setting import Setting
@@ -12,6 +13,7 @@ __all__ = [
     "Base",
     "User",
     "Contact",
+    "Deal",
     "Activity",
     "Task",
     "Setting",

@@ -1,14 +1,16 @@
 import api from './api';
-import type { ApiResponse, Contact, ContactStatus } from '@/types';
+import type { ApiResponse, DealStatus } from '@/types';
 
-export interface PipelineStageContact {
+export interface PipelineStageDeal {
   id: string;
-  name: string;
-  company: string | null;
-  industry: string | null;
-  deal_value: number;
+  contact_id: string;
+  contact_name: string;
+  contact_company: string | null;
+  title: string | null;
+  amount: number;
   priority: string;
   status: string;
+  assigned_to: string | null;
   updated_at: string | null;
 }
 
@@ -16,7 +18,7 @@ export interface PipelineStage {
   status: string;
   count: number;
   total_value: number;
-  contacts: PipelineStageContact[];
+  deals: PipelineStageDeal[];
 }
 
 export interface PipelineData {
@@ -27,6 +29,6 @@ export const pipelineApi = {
   getPipeline: () =>
     api.get<ApiResponse<PipelineData>>('/pipeline'),
 
-  updateContactStatus: (id: string, status: ContactStatus) =>
-    api.put<ApiResponse<Contact>>(`/contacts/${id}`, { status }),
+  updateDealStatus: (dealId: string, status: DealStatus) =>
+    api.put<ApiResponse<unknown>>(`/deals/${dealId}`, { status }),
 };

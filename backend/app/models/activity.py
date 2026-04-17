@@ -19,6 +19,7 @@ class Activity(Base):
         Enum("phone", "email", "meeting", "WhatsApp", "other", "status change", name="activity_type"),
         nullable=False,
     )
+    deal_id: Mapped[str] = mapped_column(String(36), nullable=False)
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
     follow_date: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.utcnow
@@ -27,4 +28,7 @@ class Activity(Base):
         DateTime, nullable=False, default=datetime.utcnow
     )
 
-    __table_args__ = (Index("idx_activity_contact_id", "contact_id"),)
+    __table_args__ = (
+        Index("idx_activity_contact_id", "contact_id"),
+        Index("idx_activity_deal_id", "deal_id"),
+    )

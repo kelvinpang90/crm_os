@@ -19,6 +19,7 @@ from sqlalchemy import text
 from app.database import AsyncSessionLocal, engine
 from app.models.user import User
 from app.models.contact import Contact
+from app.models.deal import Deal
 from app.models.activity import Activity
 from app.models.task import Task
 from app.models.message import Message
@@ -47,7 +48,7 @@ PREV_YEAR = YEAR if MONTH > 1 else YEAR - 1
 async def wipe(session):
     for table in [
         "messages", "activities", "tasks", "sales_targets",
-        "routing_rules", "contacts", "users",
+        "routing_rules", "deals", "contacts", "users",
     ]:
         await session.execute(text(f"DELETE FROM {table}"))
     await session.commit()
@@ -303,18 +304,34 @@ async def seed():
         ]
 
         contacts = []
+        seed_deals = []
+        d: dict[int, str] = {}  # contact_key → deal_id
         for (
             key, name, company, industry, status, priority, deal_value,
             email, phone, address, tags, notes, assigned_to, days_ago
         ) in contact_rows:
+            deal_id = uid()
+            d[key] = deal_id
+            created_ts = NOW - timedelta(days=days_ago)
             contacts.append(Contact(
                 id=c[key], name=name, company=company, industry=industry,
-                status=status, priority=priority, deal_value=deal_value,
                 email=email, phone=phone, address=address,
                 tags=tags, notes=notes, assigned_to=assigned_to,
                 last_contact=TODAY - timedelta(days=days_ago),
             ))
+            seed_deals.append(Deal(
+                id=deal_id,
+                contact_id=c[key],
+                status=status,
+                priority=priority,
+                amount=deal_value,
+                assigned_to=assigned_to,
+                won_at=created_ts if status == "won" else None,
+                created_at=created_ts,
+                updated_at=created_ts,
+            ))
         session.add_all(contacts)
+        session.add_all(seed_deals)
 
         # ------------------------------------------------------------------ #
         #  ACTIVITIES                                                          #
@@ -325,6 +342,7 @@ async def seed():
             activities.append(Activity(
                 id=uid(),
                 contact_id=c[contact_key],
+                deal_id=d[contact_key],
                 user_id=user_id,
                 type=atype,
                 content=content,

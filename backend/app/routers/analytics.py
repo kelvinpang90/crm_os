@@ -2,12 +2,13 @@ from typing import Annotated
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select, func, case, and_
+from sqlalchemy import select, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
+from app.models.deal import Deal
 from app.models.contact import Contact
 from app.models.message import Message
 from app.utils.response import ok
@@ -15,11 +16,10 @@ from app.utils.response import ok
 router = APIRouter()
 
 
-async def _get_scoped_contact_query(current_user: User, db: AsyncSession):
-    """根据角色返回可见客户的基础查询条件"""
-    conditions = [Contact.deleted_at.is_(None)]
+async def _get_scoped_deal_conditions(current_user: User, db: AsyncSession) -> list:
+    conditions = [Deal.deleted_at.is_(None)]
     if current_user.role == "sales":
-        conditions.append(Contact.assigned_to == current_user.id)
+        conditions.append(Deal.assigned_to == current_user.id)
     elif current_user.role == "manager":
         result = await db.execute(
             select(User.id).where(
@@ -27,7 +27,7 @@ async def _get_scoped_contact_query(current_user: User, db: AsyncSession):
             )
         )
         team_ids = [r[0] for r in result.all()]
-        conditions.append(Contact.assigned_to.in_(team_ids))
+        conditions.append(Deal.assigned_to.in_(team_ids))
     return conditions
 
 
@@ -37,17 +37,17 @@ async def get_analytics(
     db: Annotated[AsyncSession, Depends(get_db)],
     days: int = Query(default=90, ge=7, le=365),
 ):
-    scope = await _get_scoped_contact_query(current_user, db)
+    scope = await _get_scoped_deal_conditions(current_user, db)
     since = datetime.utcnow() - timedelta(days=days)
 
-    # Overview
+    # Overview (all-time)
     overview_q = await db.execute(
         select(
-            func.count(Contact.id).label("total"),
-            func.sum(case((Contact.status == "won", 1), else_=0)).label("won"),
-            func.sum(case((Contact.status == "lost", 1), else_=0)).label("lost"),
+            func.count(Deal.id).label("total"),
+            func.sum(case((Deal.status == "won", 1), else_=0)).label("won"),
+            func.sum(case((Deal.status == "lost", 1), else_=0)).label("lost"),
             func.coalesce(func.sum(
-                case((Contact.status == "won", Contact.deal_value), else_=0)
+                case((Deal.status == "won", Deal.amount), else_=0)
             ), 0).label("deal_amount"),
         ).where(*scope)
     )
@@ -66,29 +66,38 @@ async def get_analytics(
         "avg_deal_value": round(deal_amount / won, 2) if won > 0 else 0,
     }
 
-    # Conversion trend (group by week)
-    trend_q = await db.execute(
+    # Conversion trend: new deals by created_at + won deals by won_at
+    new_q = await db.execute(
         select(
-            func.date_format(Contact.created_at, "%Y-%m-%d").label("dt"),
-            func.count(Contact.id).label("total"),
-            func.sum(case((Contact.status == "won", 1), else_=0)).label("won"),
+            func.date_format(Deal.created_at, "%Y-%m-%d").label("dt"),
+            func.count(Deal.id).label("cnt"),
         )
-        .where(*scope, Contact.created_at >= since)
+        .where(*scope, Deal.created_at >= since)
         .group_by("dt")
         .order_by("dt")
     )
-    conversion_trend = []
-    for r in trend_q.all():
-        t = r.total or 0
-        w = r.won or 0
-        conversion_trend.append({
-            "date": r.dt,
-            "total": t,
-            "won": w,
-            "rate": round(w / t * 100, 1) if t > 0 else 0,
-        })
+    won_q = await db.execute(
+        select(
+            func.date_format(Deal.won_at, "%Y-%m-%d").label("dt"),
+            func.count(Deal.id).label("cnt"),
+        )
+        .where(*scope, Deal.won_at.isnot(None), Deal.won_at >= since)
+        .group_by("dt")
+        .order_by("dt")
+    )
+    new_by_date: dict[str, int] = {r.dt: r.cnt for r in new_q.all()}
+    won_by_date: dict[str, int] = {r.dt: r.cnt for r in won_q.all()}
+    all_dates = sorted(set(new_by_date) | set(won_by_date))
+    conversion_trend = [
+        {
+            "date": dt,
+            "new_contacts": new_by_date.get(dt, 0),
+            "won": won_by_date.get(dt, 0),
+        }
+        for dt in all_dates
+    ]
 
-    # Channel distribution (messages)
+    # Channel distribution (messages — unchanged)
     channel_q = await db.execute(
         select(
             Message.channel,
@@ -108,25 +117,25 @@ async def get_analytics(
         for r in channels_raw
     ]
 
-    # Sales ranking
+    # Sales ranking: deals created in window, filter to those with at least 1 won
     ranking_q = await db.execute(
         select(
-            Contact.assigned_to,
-            func.count(Contact.id).label("total_count"),
-            func.sum(case((Contact.status == "won", 1), else_=0)).label("won_count"),
+            Deal.assigned_to,
+            func.count(Deal.id).label("total_count"),
+            func.sum(case((Deal.won_at.isnot(None), 1), else_=0)).label("won_count"),
             func.coalesce(func.sum(
-                case((Contact.status == "won", Contact.deal_value), else_=0)
+                case((Deal.won_at.isnot(None), Deal.amount), else_=0)
             ), 0).label("deal_amount"),
         )
-        .where(*scope, Contact.assigned_to.isnot(None))
-        .group_by(Contact.assigned_to)
-        .order_by(func.sum(case((Contact.status == "won", Contact.deal_value), else_=0)).desc())
+        .where(*scope, Deal.assigned_to.isnot(None), Deal.created_at >= since)
+        .group_by(Deal.assigned_to)
+        .having(func.sum(case((Deal.won_at.isnot(None), 1), else_=0)) > 0)
+        .order_by(func.sum(case((Deal.won_at.isnot(None), Deal.amount), else_=0)).desc())
     )
     rankings_raw = ranking_q.all()
 
-    # Fetch user names
     user_ids = [r.assigned_to for r in rankings_raw if r.assigned_to]
-    user_names = {}
+    user_names: dict[str, str] = {}
     if user_ids:
         u_q = await db.execute(select(User.id, User.name).where(User.id.in_(user_ids)))
         user_names = {uid: name for uid, name in u_q.all()}

@@ -12,9 +12,8 @@ export interface AnalyticsOverview {
 
 export interface ConversionPoint {
   date: string;
-  total: number;
+  new_contacts: number;
   won: number;
-  rate: number;
 }
 
 export interface ChannelDistribution {

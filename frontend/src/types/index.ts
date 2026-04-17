@@ -13,7 +13,7 @@ export interface User {
 }
 
 // === Contact ===
-export type ContactStatus = 'lead' | 'following' | 'negotiating' | 'won' | 'lost';
+export type DealStatus = 'lead' | 'following' | 'negotiating' | 'won' | 'lost';
 export type Priority = 'high' | 'mid' | 'low';
 
 export interface Contact {
@@ -21,9 +21,6 @@ export interface Contact {
   name: string;
   company: string | null;
   industry: string | null;
-  status: ContactStatus;
-  priority: Priority;
-  deal_value: number;
   email: string | null;
   phone: string | null;
   address: string | null;
@@ -32,17 +29,38 @@ export interface Contact {
   assigned_to_name?: string | null;
   last_contact: string | null;
   tags: string[] | null;
+  is_archived: number;
+  total_deal_amount: number;
+  deal_count: number;
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
 }
 
+// === Deal ===
+export interface Deal {
+  id: string;
+  contact_id: string;
+  contact_name?: string | null;
+  contact_company?: string | null;
+  title: string | null;
+  status: DealStatus;
+  priority: Priority;
+  amount: number;
+  assigned_to: string | null;
+  assigned_to_name?: string | null;
+  won_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // === Activity ===
-export type ActivityType = '电话' | '邮件' | '会面' | 'WhatsApp' | '其他' | '状态变更';
+export type ActivityType = 'phone' | 'email' | 'meeting' | 'WhatsApp' | 'other' | 'status change';
 
 export interface Activity {
   id: string;
   contact_id: string;
+  deal_id: string;
   user_id: string;
   type: ActivityType;
   content: string | null;

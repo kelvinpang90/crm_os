@@ -90,7 +90,6 @@ async def _handle_message(db: AsyncSession, msg: dict) -> None:
             id=str(uuid.uuid4()),
             name=phone,
             phone=phone,
-            status="lead",
         )
         db.add(contact)
         await db.flush()
@@ -98,6 +97,18 @@ async def _handle_message(db: AsyncSession, msg: dict) -> None:
         assigned = await routing_service.assign_contact(db, contact)
         if assigned:
             contact.assigned_to = assigned
+            await db.flush()
+        # Create initial deal
+        from app.models.deal import Deal
+        deal = Deal(
+            id=str(uuid.uuid4()),
+            contact_id=contact.id,
+            status="lead",
+            priority="mid",
+            amount=0.0,
+            assigned_to=contact.assigned_to,
+        )
+        db.add(deal)
 
     # Save message
     message = Message(

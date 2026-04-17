@@ -9,7 +9,7 @@ from openpyxl import Workbook, load_workbook
 from app.database import get_db
 from app.dependencies import get_current_user, require_role
 from app.models.user import User
-from app.schemas.contact import ContactCreate, ContactUpdate
+from app.schemas.contact import ContactCreate, ContactUpdate, ArchiveRequest
 from app.schemas.activity import ActivityCreate
 from app.services import contact_service, activity_service
 from app.utils.response import ok, fail
@@ -23,17 +23,16 @@ async def list_contacts(
     current_user: Annotated[User, Depends(get_current_user)],
     search: Optional[str] = Query(None),
     industry: Optional[str] = Query(None),
-    status: Optional[str] = Query(None),
-    priority: Optional[str] = Query(None),
     assigned_to: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=500),
     sort_by: str = Query("created_at"),
     order: str = Query("desc"),
+    is_archived: int = Query(0),
 ):
     result = await contact_service.list_contacts(
-        db, current_user, search, industry, status, priority,
-        assigned_to, page, page_size, sort_by, order,
+        db, current_user, search, industry,
+        assigned_to, page, page_size, sort_by, order, is_archived,
     )
     return ok(data=result)
 
@@ -44,16 +43,23 @@ async def download_import_template():
     ws = wb.active
     ws.title = "customer template"
     headers = [
-        "name", "company", "industry", "status", "priority",
-        "amount", "email", "phone", "address", "remark",
-        "tag", "assigned_to_email", "customer_id (for update)",
+        "name", "company", "industry", "email", "phone", "address", "remark",
+        "tag", "assigned_to_email",
+        "status", "priority", "amount", "deal_title",
+        "customer_id (add deal only)",
     ]
     ws.append(headers)
-    # Example row
+    # Example row — new contact
     ws.append([
-        "Zhang San", "Example Tech Co.", "Technology/IT", "lead", "mid",
-        "100000", "zhangsan@example.com", "13800138000", "123 Main St, Beijing",
-        "Example note", "VIP,key account", "sales@crm.com", "",
+        "Zhang San", "Example Tech Co.", "Technology/IT",
+        "zhangsan@example.com", "13800138000", "123 Main St, Beijing",
+        "Example note", "VIP,key account", "sales@crm.com",
+        "lead", "mid", "100000", "", "",
+    ])
+    # Example row — add deal to existing contact
+    ws.append([
+        "", "", "", "", "", "", "", "", "",
+        "negotiating", "high", "50000", "Q2 renewal", "existing-contact-uuid",
     ])
 
     buffer = BytesIO()
@@ -85,10 +91,11 @@ async def import_contacts(
 
     field_map = {
         "name": "name", "company": "company", "industry": "industry",
-        "status": "status", "priority": "priority", "amount": "deal_value",
         "email": "email", "phone": "phone", "address": "address", "remark": "notes",
         "tag": "tags", "assigned_to_email": "assigned_to_email",
-        "customer_id (for update)": "id",
+        "status": "status", "priority": "priority", "amount": "deal_value",
+        "deal_title": "deal_title",
+        "customer_id (add deal only)": "id",
     }
 
     rows_iter = ws.iter_rows(values_only=True)
@@ -149,10 +156,26 @@ async def update_contact(
     current_user: Annotated[User, Depends(get_current_user)],
 ):
     data = {k: v for k, v in body.model_dump().items() if v is not None}
+    if "is_archived" in data and current_user.role not in ("admin", "manager"):
+        return fail("Permission denied", code="FORBIDDEN", status_code=403)
     contact = await contact_service.update_contact(db, contact_id, data, current_user)
     if not contact:
         return fail("Contact not found", code="NOT_FOUND", status_code=404)
     return ok(data=contact, message="Updated successfully")
+
+
+@router.patch("/{contact_id}/archive")
+async def archive_contact(
+    contact_id: str,
+    body: ArchiveRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _current_user: Annotated[User, Depends(require_role("admin", "manager"))],
+):
+    contact = await contact_service.archive_contact(db, contact_id, body.is_archived)
+    if not contact:
+        return fail("Contact not found", code="NOT_FOUND", status_code=404)
+    msg = "Archived" if body.is_archived else "Unarchived"
+    return ok(data=contact, message=f"{msg} successfully")
 
 
 @router.delete("/{contact_id}")
@@ -187,6 +210,6 @@ async def create_activity(
     current_user: Annotated[User, Depends(get_current_user)],
 ):
     activity = await activity_service.create_activity(
-        db, contact_id, current_user.id, body.type, body.content, body.follow_date,
+        db, contact_id, body.deal_id, current_user.id, body.type, body.content, body.follow_date,
     )
     return ok(data=activity, message="Follow-up activity recorded", status_code=201)

@@ -1,10 +1,11 @@
 from datetime import date, datetime, timedelta
 from typing import Optional
 
-from sqlalchemy import select, func, case, extract, text
+from sqlalchemy import select, func, case, extract
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.contact import Contact
+from app.models.deal import Deal
 from app.models.activity import Activity
 from app.models.task import Task
 from app.models.user import User
@@ -20,7 +21,11 @@ async def _get_team_ids(db: AsyncSession, manager_id: str) -> list[str]:
     return ids
 
 
-def _alive():
+def _deal_alive():
+    return Deal.deleted_at.is_(None)
+
+
+def _contact_alive():
     return Contact.deleted_at.is_(None)
 
 
@@ -33,12 +38,10 @@ async def get_admin_dashboard(db: AsyncSession) -> dict:
     now = datetime.utcnow()
     year, month = now.year, now.month
 
-    base = select(Contact).where(_alive())
-
-    # KPI 1: new leads today
+    # KPI 1: new leads today (new contacts created today)
     r = await db.execute(
         select(func.count(Contact.id)).where(
-            _alive(),
+            _contact_alive(),
             func.date(Contact.created_at) == today,
         )
     )
@@ -53,34 +56,34 @@ async def get_admin_dashboard(db: AsyncSession) -> dict:
     )
     follow_up_today = r.scalar() or 0
 
-    # KPI 3: quoting count (negotiating)
+    # KPI 3: quoting count (deals in negotiating)
     r = await db.execute(
-        select(func.count(Contact.id)).where(
-            _alive(), Contact.status == "negotiating"
+        select(func.count(Deal.id)).where(
+            _deal_alive(), Deal.status == "negotiating"
         )
     )
     quoting_count = r.scalar() or 0
 
-    # KPI 4: monthly GMV (won this month, by updated_at)
+    # KPI 4: monthly GMV (won this month, by won_at)
     r = await db.execute(
-        select(func.coalesce(func.sum(Contact.deal_value), 0)).where(
-            _alive(),
-            Contact.status == "won",
-            extract("year", Contact.updated_at) == year,
-            extract("month", Contact.updated_at) == month,
+        select(func.coalesce(func.sum(Deal.amount), 0)).where(
+            _deal_alive(),
+            Deal.status == "won",
+            extract("year", Deal.won_at) == year,
+            extract("month", Deal.won_at) == month,
         )
     )
     monthly_gmv = float(r.scalar() or 0)
 
-    # KPI 5: monthly win rate
+    # KPI 5: monthly win rate (deals created this month)
     r = await db.execute(
         select(
-            func.count(case((Contact.status == "won", 1))),
-            func.count(Contact.id),
+            func.count(case((Deal.status == "won", 1))),
+            func.count(Deal.id),
         ).where(
-            _alive(),
-            extract("year", Contact.created_at) == year,
-            extract("month", Contact.created_at) == month,
+            _deal_alive(),
+            extract("year", Deal.created_at) == year,
+            extract("month", Deal.created_at) == month,
         )
     )
     won, total_month = r.one()
@@ -88,9 +91,9 @@ async def get_admin_dashboard(db: AsyncSession) -> dict:
 
     # KPI 6: pipeline value (following + negotiating)
     r = await db.execute(
-        select(func.coalesce(func.sum(Contact.deal_value), 0)).where(
-            _alive(),
-            Contact.status.in_(["following", "negotiating"]),
+        select(func.coalesce(func.sum(Deal.amount), 0)).where(
+            _deal_alive(),
+            Deal.status.in_(["following", "negotiating"]),
         )
     )
     pipeline_value = float(r.scalar() or 0)
@@ -104,7 +107,6 @@ async def get_admin_dashboard(db: AsyncSession) -> dict:
         {"key": "pipeline_value", "value": pipeline_value},
     ]
 
-    # Funnel: 5 stages
     funnel = await _build_funnel(db)
 
     return {"kpis": kpis, "funnel": funnel}
@@ -113,41 +115,35 @@ async def get_admin_dashboard(db: AsyncSession) -> dict:
 async def _build_funnel(
     db: AsyncSession, scope_ids: Optional[list[str]] = None
 ) -> list[dict]:
-    """Build 5-stage funnel. If scope_ids given, filter by assigned_to."""
+    """Build 5-stage funnel. If scope_ids given, filter by Deal.assigned_to."""
 
     def scope(stmt):
         if scope_ids is not None:
-            return stmt.where(Contact.assigned_to.in_(scope_ids))
+            return stmt.where(Deal.assigned_to.in_(scope_ids))
         return stmt
 
     stages = []
 
-    # Stage 1: lead
-    r = await db.execute(
-        scope(
-            select(
-                func.count(Contact.id),
-                func.coalesce(func.sum(Contact.deal_value), 0),
-            ).where(_alive(), Contact.status == "lead")
+    for status_val, stage_key in [
+        ("lead", "newLead"),
+        ("following", "contacted"),
+        ("negotiating", "quoting"),
+        ("won", "won"),
+    ]:
+        r = await db.execute(
+            scope(
+                select(
+                    func.count(Deal.id),
+                    func.coalesce(func.sum(Deal.amount), 0),
+                ).where(_deal_alive(), Deal.status == status_val)
+            )
         )
-    )
-    cnt, amt = r.one()
-    stages.append({"stage": "newLead", "count": cnt, "amount": float(amt)})
+        cnt, amt = r.one()
+        stages.append({"stage": stage_key, "count": cnt, "amount": float(amt)})
 
-    # Stage 2: following
-    r = await db.execute(
-        scope(
-            select(
-                func.count(Contact.id),
-                func.coalesce(func.sum(Contact.deal_value), 0),
-            ).where(_alive(), Contact.status == "following")
-        )
-    )
-    cnt, amt = r.one()
-    stages.append({"stage": "contacted", "count": cnt, "amount": float(amt)})
-
-    # Stage 3: following + has >=1 activity
-    subq = (
+    # Insert "qualified" between contacted and quoting:
+    # following deals whose contact has >=1 activity
+    activity_subq = (
         select(Activity.contact_id)
         .group_by(Activity.contact_id)
         .having(func.count(Activity.id) >= 1)
@@ -156,41 +152,18 @@ async def _build_funnel(
     r = await db.execute(
         scope(
             select(
-                func.count(Contact.id),
-                func.coalesce(func.sum(Contact.deal_value), 0),
+                func.count(Deal.id),
+                func.coalesce(func.sum(Deal.amount), 0),
             ).where(
-                _alive(),
-                Contact.status == "following",
-                Contact.id.in_(select(subq.c.contact_id)),
+                _deal_alive(),
+                Deal.status == "following",
+                Deal.contact_id.in_(select(activity_subq.c.contact_id)),
             )
         )
     )
     cnt, amt = r.one()
-    stages.append({"stage": "qualified", "count": cnt, "amount": float(amt)})
-
-    # Stage 4: negotiating
-    r = await db.execute(
-        scope(
-            select(
-                func.count(Contact.id),
-                func.coalesce(func.sum(Contact.deal_value), 0),
-            ).where(_alive(), Contact.status == "negotiating")
-        )
-    )
-    cnt, amt = r.one()
-    stages.append({"stage": "quoting", "count": cnt, "amount": float(amt)})
-
-    # Stage 5: won
-    r = await db.execute(
-        scope(
-            select(
-                func.count(Contact.id),
-                func.coalesce(func.sum(Contact.deal_value), 0),
-            ).where(_alive(), Contact.status == "won")
-        )
-    )
-    cnt, amt = r.one()
-    stages.append({"stage": "won", "count": cnt, "amount": float(amt)})
+    # Insert "qualified" after index 1 (after "contacted")
+    stages.insert(2, {"stage": "qualified", "count": cnt, "amount": float(amt)})
 
     return stages
 
@@ -201,8 +174,8 @@ async def _build_manager_funnel(
     """Build 6-stage funnel for manager (adds 'negotiating' stage)."""
     stages = await _build_funnel(db, scope_ids)
 
-    # Insert "negotiating" before "won" — negotiating with >=2 activities
-    subq = (
+    # negotiating deals whose contact has >=2 activities
+    activity_subq = (
         select(Activity.contact_id)
         .group_by(Activity.contact_id)
         .having(func.count(Activity.id) >= 2)
@@ -210,19 +183,19 @@ async def _build_manager_funnel(
 
     r = await db.execute(
         select(
-            func.count(Contact.id),
-            func.coalesce(func.sum(Contact.deal_value), 0),
+            func.count(Deal.id),
+            func.coalesce(func.sum(Deal.amount), 0),
         ).where(
-            _alive(),
-            Contact.status == "negotiating",
-            Contact.assigned_to.in_(scope_ids),
-            Contact.id.in_(select(subq.c.contact_id)),
+            _deal_alive(),
+            Deal.status == "negotiating",
+            Deal.assigned_to.in_(scope_ids),
+            Deal.contact_id.in_(select(activity_subq.c.contact_id)),
         )
     )
     cnt, amt = r.one()
     negotiating = {"stage": "negotiating", "count": cnt, "amount": float(amt)}
 
-    # Insert before the last stage (won)
+    # Insert before the last stage (won) — stages order: newLead, contacted, qualified, quoting, <negotiating>, won
     stages.insert(-1, negotiating)
     return stages
 
@@ -237,14 +210,14 @@ async def get_manager_dashboard(db: AsyncSession, user: User) -> dict:
     now = datetime.utcnow()
     year, month = now.year, now.month
 
-    # KPI 1: team monthly GMV
+    # KPI 1: team monthly GMV (won this month by won_at)
     r = await db.execute(
-        select(func.coalesce(func.sum(Contact.deal_value), 0)).where(
-            _alive(),
-            Contact.status == "won",
-            Contact.assigned_to.in_(team_ids),
-            extract("year", Contact.updated_at) == year,
-            extract("month", Contact.updated_at) == month,
+        select(func.coalesce(func.sum(Deal.amount), 0)).where(
+            _deal_alive(),
+            Deal.status == "won",
+            Deal.assigned_to.in_(team_ids),
+            extract("year", Deal.won_at) == year,
+            extract("month", Deal.won_at) == month,
         )
     )
     team_monthly_gmv = float(r.scalar() or 0)
@@ -260,41 +233,41 @@ async def get_manager_dashboard(db: AsyncSession, user: User) -> dict:
     team_target = float(r.scalar() or 0)
     team_target_rate = round(team_monthly_gmv / team_target * 100, 1) if team_target else 0
 
-    # KPI 3: team pipeline value
+    # KPI 3: team pipeline value (following + negotiating)
     r = await db.execute(
-        select(func.coalesce(func.sum(Contact.deal_value), 0)).where(
-            _alive(),
-            Contact.status.in_(["following", "negotiating"]),
-            Contact.assigned_to.in_(team_ids),
+        select(func.coalesce(func.sum(Deal.amount), 0)).where(
+            _deal_alive(),
+            Deal.status.in_(["following", "negotiating"]),
+            Deal.assigned_to.in_(team_ids),
         )
     )
     team_pipeline_value = float(r.scalar() or 0)
 
-    # KPI 4: team win rate
+    # KPI 4: team win rate (deals created this month)
     r = await db.execute(
         select(
-            func.count(case((Contact.status == "won", 1))),
-            func.count(Contact.id),
+            func.count(case((Deal.status == "won", 1))),
+            func.count(Deal.id),
         ).where(
-            _alive(),
-            Contact.assigned_to.in_(team_ids),
-            extract("year", Contact.created_at) == year,
-            extract("month", Contact.created_at) == month,
+            _deal_alive(),
+            Deal.assigned_to.in_(team_ids),
+            extract("year", Deal.created_at) == year,
+            extract("month", Deal.created_at) == month,
         )
     )
     won, total = r.one()
     team_win_rate = round(won / total * 100, 1) if total else 0
 
-    # KPI 5: avg sales cycle (last 90 days, team)
+    # KPI 5: avg sales cycle (last 90 days, won deals)
     cutoff = now - timedelta(days=90)
     r = await db.execute(
         select(
-            func.avg(func.datediff(Contact.updated_at, Contact.created_at))
+            func.avg(func.datediff(Deal.won_at, Deal.created_at))
         ).where(
-            _alive(),
-            Contact.status == "won",
-            Contact.assigned_to.in_(team_ids),
-            Contact.updated_at >= cutoff,
+            _deal_alive(),
+            Deal.status == "won",
+            Deal.assigned_to.in_(team_ids),
+            Deal.won_at >= cutoff,
         )
     )
     avg_cycle = r.scalar()
@@ -323,10 +296,10 @@ async def get_sales_dashboard(db: AsyncSession, user: User) -> dict:
     now = datetime.utcnow()
     year, month = now.year, now.month
 
-    # KPI 1: new contacts today
+    # KPI 1: new contacts today (assigned to this user)
     r = await db.execute(
         select(func.count(Contact.id)).where(
-            _alive(),
+            _contact_alive(),
             Contact.assigned_to == uid,
             func.date(Contact.created_at) == today,
         )
@@ -343,26 +316,26 @@ async def get_sales_dashboard(db: AsyncSession, user: User) -> dict:
     )
     follow_up_today = r.scalar() or 0
 
-    # KPI 3: monthly GMV
+    # KPI 3: monthly GMV (won this month by won_at)
     r = await db.execute(
-        select(func.coalesce(func.sum(Contact.deal_value), 0)).where(
-            _alive(),
-            Contact.status == "won",
-            Contact.assigned_to == uid,
-            extract("year", Contact.updated_at) == year,
-            extract("month", Contact.updated_at) == month,
+        select(func.coalesce(func.sum(Deal.amount), 0)).where(
+            _deal_alive(),
+            Deal.status == "won",
+            Deal.assigned_to == uid,
+            extract("year", Deal.won_at) == year,
+            extract("month", Deal.won_at) == month,
         )
     )
     monthly_gmv = float(r.scalar() or 0)
 
     # KPI 4: monthly won count
     r = await db.execute(
-        select(func.count(Contact.id)).where(
-            _alive(),
-            Contact.status == "won",
-            Contact.assigned_to == uid,
-            extract("year", Contact.updated_at) == year,
-            extract("month", Contact.updated_at) == month,
+        select(func.count(Deal.id)).where(
+            _deal_alive(),
+            Deal.status == "won",
+            Deal.assigned_to == uid,
+            extract("year", Deal.won_at) == year,
+            extract("month", Deal.won_at) == month,
         )
     )
     monthly_won_count = r.scalar() or 0
@@ -386,17 +359,17 @@ async def get_sales_dashboard(db: AsyncSession, user: User) -> dict:
         {"key": "target_completion_rate", "value": target_rate},
     ]
 
-    # Pipeline: group by status
+    # Pipeline: group by deal status (for this user)
     r = await db.execute(
         select(
-            Contact.status,
-            func.count(Contact.id),
-            func.coalesce(func.sum(Contact.deal_value), 0),
-            func.max(Contact.updated_at),
+            Deal.status,
+            func.count(Deal.id),
+            func.coalesce(func.sum(Deal.amount), 0),
+            func.max(Deal.updated_at),
         ).where(
-            _alive(),
-            Contact.assigned_to == uid,
-        ).group_by(Contact.status)
+            _deal_alive(),
+            Deal.assigned_to == uid,
+        ).group_by(Deal.status)
     )
     rows = r.all()
     status_map = {row[0]: row for row in rows}
@@ -439,21 +412,21 @@ async def get_leaderboard(db: AsyncSession, month_str: str) -> dict:
 
     r = await db.execute(
         select(
-            Contact.assigned_to,
+            Deal.assigned_to,
             User.name,
             User.avatar_url,
-            func.coalesce(func.sum(Contact.deal_value), 0).label("deal_amount"),
-            func.count(Contact.id).label("deal_count"),
+            func.coalesce(func.sum(Deal.amount), 0).label("deal_amount"),
+            func.count(Deal.id).label("deal_count"),
         )
-        .join(User, User.id == Contact.assigned_to)
+        .join(User, User.id == Deal.assigned_to)
         .where(
-            _alive(),
-            Contact.status == "won",
-            extract("year", Contact.updated_at) == year,
-            extract("month", Contact.updated_at) == month,
+            _deal_alive(),
+            Deal.status == "won",
+            extract("year", Deal.won_at) == year,
+            extract("month", Deal.won_at) == month,
         )
-        .group_by(Contact.assigned_to, User.name, User.avatar_url)
-        .order_by(func.sum(Contact.deal_value).desc())
+        .group_by(Deal.assigned_to, User.name, User.avatar_url)
+        .order_by(func.sum(Deal.amount).desc())
         .limit(10)
     )
     rows = r.all()
@@ -467,23 +440,22 @@ async def get_leaderboard(db: AsyncSession, month_str: str) -> dict:
             "avatar_url": row[2],
             "deal_amount": float(row[3]),
             "deal_count": row[4],
-            "win_rate": 0,  # will compute below
+            "win_rate": 0,
         })
 
-    # Compute win rate per user
     if entries:
         user_ids = [e["user_id"] for e in entries]
         r = await db.execute(
             select(
-                Contact.assigned_to,
-                func.count(case((Contact.status == "won", 1))),
-                func.count(Contact.id),
+                Deal.assigned_to,
+                func.count(case((Deal.status == "won", 1))),
+                func.count(Deal.id),
             ).where(
-                _alive(),
-                Contact.assigned_to.in_(user_ids),
-                extract("year", Contact.created_at) == year,
-                extract("month", Contact.created_at) == month,
-            ).group_by(Contact.assigned_to)
+                _deal_alive(),
+                Deal.assigned_to.in_(user_ids),
+                extract("year", Deal.created_at) == year,
+                extract("month", Deal.created_at) == month,
+            ).group_by(Deal.assigned_to)
         )
         wr_map = {}
         for uid, won, total in r.all():
@@ -502,37 +474,36 @@ async def get_team_leaderboard(
 
     r = await db.execute(
         select(
-            Contact.assigned_to,
+            Deal.assigned_to,
             User.name,
             User.avatar_url,
-            func.coalesce(func.sum(Contact.deal_value), 0).label("deal_amount"),
-            func.count(Contact.id).label("deal_count"),
+            func.coalesce(func.sum(Deal.amount), 0).label("deal_amount"),
+            func.count(Deal.id).label("deal_count"),
         )
-        .join(User, User.id == Contact.assigned_to)
+        .join(User, User.id == Deal.assigned_to)
         .where(
-            _alive(),
-            Contact.status == "won",
-            Contact.assigned_to.in_(team_ids),
-            extract("year", Contact.updated_at) == year,
-            extract("month", Contact.updated_at) == month,
+            _deal_alive(),
+            Deal.status == "won",
+            Deal.assigned_to.in_(team_ids),
+            extract("year", Deal.won_at) == year,
+            extract("month", Deal.won_at) == month,
         )
-        .group_by(Contact.assigned_to, User.name, User.avatar_url)
-        .order_by(func.sum(Contact.deal_value).desc())
+        .group_by(Deal.assigned_to, User.name, User.avatar_url)
+        .order_by(func.sum(Deal.amount).desc())
     )
     rows = r.all()
 
-    # Win rate
     wr_result = await db.execute(
         select(
-            Contact.assigned_to,
-            func.count(case((Contact.status == "won", 1))),
-            func.count(Contact.id),
+            Deal.assigned_to,
+            func.count(case((Deal.status == "won", 1))),
+            func.count(Deal.id),
         ).where(
-            _alive(),
-            Contact.assigned_to.in_(team_ids),
-            extract("year", Contact.created_at) == year,
-            extract("month", Contact.created_at) == month,
-        ).group_by(Contact.assigned_to)
+            _deal_alive(),
+            Deal.assigned_to.in_(team_ids),
+            extract("year", Deal.created_at) == year,
+            extract("month", Deal.created_at) == month,
+        ).group_by(Deal.assigned_to)
     )
     wr_map = {}
     for uid, won, total in wr_result.all():
@@ -564,12 +535,13 @@ async def get_gmv_trend(db: AsyncSession, period: str) -> dict:
         start_year = now.year - 4
         r = await db.execute(
             select(
-                extract("year", Contact.updated_at).label("yr"),
-                func.coalesce(func.sum(Contact.deal_value), 0),
+                extract("year", Deal.won_at).label("yr"),
+                func.coalesce(func.sum(Deal.amount), 0),
             ).where(
-                _alive(),
-                Contact.status == "won",
-                extract("year", Contact.updated_at) >= start_year,
+                _deal_alive(),
+                Deal.status == "won",
+                Deal.won_at.isnot(None),
+                extract("year", Deal.won_at) >= start_year,
             ).group_by("yr").order_by("yr")
         )
         data = [
@@ -581,12 +553,13 @@ async def get_gmv_trend(db: AsyncSession, period: str) -> dict:
         cutoff = now - timedelta(days=365)
         r = await db.execute(
             select(
-                func.date_format(Contact.updated_at, "%Y-%m").label("ym"),
-                func.coalesce(func.sum(Contact.deal_value), 0),
+                func.date_format(Deal.won_at, "%Y-%m").label("ym"),
+                func.coalesce(func.sum(Deal.amount), 0),
             ).where(
-                _alive(),
-                Contact.status == "won",
-                Contact.updated_at >= cutoff,
+                _deal_alive(),
+                Deal.status == "won",
+                Deal.won_at.isnot(None),
+                Deal.won_at >= cutoff,
             ).group_by("ym").order_by("ym")
         )
         data = [

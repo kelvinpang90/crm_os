@@ -1,9 +1,8 @@
 import uuid
 from datetime import datetime, date
-from decimal import Decimal
 
 from sqlalchemy import (
-    String, Enum, Text, DateTime, Date, Boolean, Index, JSON, DECIMAL,
+    String, Text, DateTime, Date, Index, JSON, SmallInteger,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -19,19 +18,6 @@ class Contact(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     company: Mapped[str | None] = mapped_column(String(200), nullable=True)
     industry: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    status: Mapped[str] = mapped_column(
-        Enum("lead", "following", "negotiating", "won", "lost", name="contact_status"),
-        nullable=False,
-        default="lead",
-    )
-    priority: Mapped[str] = mapped_column(
-        Enum("high", "mid", "low", name="contact_priority"),
-        nullable=False,
-        default="mid",
-    )
-    deal_value: Mapped[Decimal] = mapped_column(
-        DECIMAL(15, 2), nullable=False, default=Decimal("0.00")
-    )
     email: Mapped[str | None] = mapped_column(String(200), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -39,6 +25,7 @@ class Contact(Base):
     assigned_to: Mapped[str | None] = mapped_column(String(36), nullable=True)
     last_contact: Mapped[date | None] = mapped_column(Date, nullable=True)
     tags: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    is_archived: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.utcnow
@@ -48,8 +35,8 @@ class Contact(Base):
     )
 
     __table_args__ = (
-        Index("idx_status", "status"),
         Index("idx_industry", "industry"),
         Index("idx_assigned_to", "assigned_to"),
         Index("idx_deleted_at", "deleted_at"),
+        Index("idx_is_archived", "is_archived"),
     )

@@ -17,9 +17,22 @@ async def list_activities(db: AsyncSession, contact_id: str) -> list[dict]:
         .order_by(Activity.follow_date.desc())
     )
     activities = result.scalars().all()
+    return await _serialize(db, activities)
 
-    data = []
+
+async def list_by_deal(db: AsyncSession, deal_id: str) -> list[dict]:
+    result = await db.execute(
+        select(Activity)
+        .where(Activity.deal_id == deal_id)
+        .order_by(Activity.follow_date.desc())
+    )
+    activities = result.scalars().all()
+    return await _serialize(db, activities)
+
+
+async def _serialize(db: AsyncSession, activities: list[Activity]) -> list[dict]:
     user_cache: dict[str, str] = {}
+    data = []
     for a in activities:
         if a.user_id not in user_cache:
             u = await db.execute(select(User.name).where(User.id == a.user_id))
@@ -27,6 +40,7 @@ async def list_activities(db: AsyncSession, contact_id: str) -> list[dict]:
         data.append({
             "id": a.id,
             "contact_id": a.contact_id,
+            "deal_id": a.deal_id,
             "user_id": a.user_id,
             "user_name": user_cache[a.user_id],
             "type": a.type,
@@ -40,6 +54,7 @@ async def list_activities(db: AsyncSession, contact_id: str) -> list[dict]:
 async def create_activity(
     db: AsyncSession,
     contact_id: str,
+    deal_id: str,
     user_id: str,
     activity_type: str,
     content: Optional[str],
@@ -50,6 +65,7 @@ async def create_activity(
     activity = Activity(
         id=str(uuid.uuid4()),
         contact_id=contact_id,
+        deal_id=deal_id,
         user_id=user_id,
         type=activity_type,
         content=content,
@@ -57,7 +73,6 @@ async def create_activity(
     )
     db.add(activity)
 
-    # Update contact last_contact
     result = await db.execute(select(Contact).where(Contact.id == contact_id))
     contact = result.scalar_one_or_none()
     if contact:
@@ -69,6 +84,7 @@ async def create_activity(
     return {
         "id": activity.id,
         "contact_id": activity.contact_id,
+        "deal_id": activity.deal_id,
         "user_id": activity.user_id,
         "type": activity.type,
         "content": activity.content,

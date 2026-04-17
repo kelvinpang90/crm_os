@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.routing_rule import RoutingRule
 from app.models.contact import Contact
+from app.models.deal import Deal
 from app.models.user import User
 
 
@@ -192,16 +193,16 @@ async def _strategy_win_rate(db: AsyncSession, eligible: list[str]) -> Optional[
 
     result = await db.execute(
         select(
-            Contact.assigned_to,
-            func.count(case((Contact.status == "won", 1))).label("won"),
-            func.count(Contact.id).label("total"),
+            Deal.assigned_to,
+            func.count(case((Deal.status == "won", 1))).label("won"),
+            func.count(Deal.id).label("total"),
         )
         .where(
-            Contact.deleted_at.is_(None),
-            Contact.assigned_to.in_(eligible),
-            Contact.created_at >= cutoff,
+            Deal.deleted_at.is_(None),
+            Deal.assigned_to.in_(eligible),
+            Deal.created_at >= cutoff,
         )
-        .group_by(Contact.assigned_to)
+        .group_by(Deal.assigned_to)
     )
     rows = result.all()
 
@@ -213,7 +214,7 @@ async def _strategy_win_rate(db: AsyncSession, eligible: list[str]) -> Optional[
             best_rate = rate
             best_id = uid
 
-    # Users with no contacts yet — give them a chance
+    # Users with no deals yet — give them a chance
     if best_id is None and eligible:
         return eligible[0]
 

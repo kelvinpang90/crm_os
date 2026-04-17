@@ -4,7 +4,7 @@ import { analyticsApi, type AnalyticsDashboard } from '@/services/analytics';
 import { formatMYR } from '@/utils/currency';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie,
+  ResponsiveContainer, Cell, PieChart, Pie,
 } from 'recharts';
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'];
@@ -86,13 +86,13 @@ export default function AnalyticsPage() {
               <LineChart data={conversion_trend}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e2d4a" />
                 <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} />
+                <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} allowDecimals={false} />
                 <Tooltip
                   contentStyle={{ backgroundColor: '#0d1526', border: '1px solid #1e2d4a', borderRadius: 8 }}
                   labelStyle={{ color: '#e2e8f0' }}
                 />
-                <Line type="monotone" dataKey="rate" stroke="#3b82f6" strokeWidth={2} dot={false} name={t('analytics.conversionRatePct')} />
-                <Line type="monotone" dataKey="total" stroke="#8b5cf6" strokeWidth={2} dot={false} name={t('analytics.newContacts')} />
+                <Line type="monotone" dataKey="new_contacts" stroke="#8b5cf6" strokeWidth={2} dot={false} name={t('analytics.newContacts')} />
+                <Line type="monotone" dataKey="won" stroke="#10b981" strokeWidth={2} dot={false} name={t('analytics.wonContacts')} />
               </LineChart>
             </ResponsiveContainer>
           ) : (

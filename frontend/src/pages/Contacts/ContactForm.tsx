@@ -1,5 +1,7 @@
-import { useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useState, useEffect, type FormEvent, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useAuthStore } from '@/store/authStore';
+import { usersApi } from '@/services/users';
 import type { Contact } from '@/types';
 
 const INDUSTRIES = [
@@ -23,21 +25,36 @@ interface Props {
 
 export default function ContactForm({ initial, onSubmit, submitting }: Props) {
   const { t } = useTranslation('contacts');
+  const user = useAuthStore((s) => s.user);
+  const isEditing = !!initial?.id;
+  const canArchive = isEditing && (user?.role === 'admin' || user?.role === 'manager');
+  const canSelectUser = user?.role === 'admin' || user?.role === 'manager';
+
   const [form, setForm] = useState({
     name: initial?.name || '',
     company: initial?.company || '',
     industry: initial?.industry || '',
-    status: initial?.status || 'lead',
-    priority: initial?.priority || 'mid',
-    deal_value: initial?.deal_value?.toString() || '0',
     email: initial?.email || '',
     phone: initial?.phone || '',
     address: initial?.address || '',
     notes: initial?.notes || '',
     tags: initial?.tags || [] as string[],
+    is_archived: initial?.is_archived ?? 0,
+    assigned_to: initial?.assigned_to || '',
+    // Initial deal (only used when creating a new contact)
+    initial_status: 'lead',
+    initial_priority: 'mid',
+    initial_amount: '0',
+    initial_title: '',
   });
   const [tagInput, setTagInput] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [userOptions, setUserOptions] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    if (!canSelectUser) return;
+    usersApi.getUsers().then((res) => setUserOptions(res.data.data ?? []));
+  }, [canSelectUser]);
 
   const set = (key: string, value: unknown) => {
     setForm((p) => ({ ...p, [key]: value }));
@@ -48,7 +65,7 @@ export default function ContactForm({ initial, onSubmit, submitting }: Props) {
     const e: Record<string, string> = {};
     if (!form.name.trim()) e.name = t('common:required');
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = t('common:invalidEmail');
-    if (form.deal_value && Number(form.deal_value) < 0) e.deal_value = t('common:mustBePositive');
+    if (isEditing && canSelectUser && !form.assigned_to) e.assigned_to = t('common:required');
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -56,15 +73,25 @@ export default function ContactForm({ initial, onSubmit, submitting }: Props) {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
-    await onSubmit({
-      ...form,
-      deal_value: parseFloat(form.deal_value) || 0,
+    const payload: Record<string, unknown> = {
+      name: form.name,
       company: form.company || null,
+      industry: form.industry || null,
       email: form.email || null,
       phone: form.phone || null,
       address: form.address || null,
       notes: form.notes || null,
-    });
+      tags: form.tags.length ? form.tags : null,
+      is_archived: form.is_archived,
+      assigned_to: form.assigned_to || null,
+    };
+    if (!isEditing) {
+      payload.initial_status = form.initial_status;
+      payload.initial_priority = form.initial_priority;
+      payload.initial_amount = parseFloat(form.initial_amount) || 0;
+      payload.initial_title = form.initial_title || null;
+    }
+    await onSubmit(payload);
   };
 
   const addTag = (e: KeyboardEvent) => {
@@ -94,19 +121,14 @@ export default function ContactForm({ initial, onSubmit, submitting }: Props) {
             {INDUSTRIES.map((v) => <option key={v} value={v}>{t(`industries.${v}`, v)}</option>)}
           </select>
         </Field>
-        <Field label={t('common:status')}>
-          <select className="input" value={form.status} onChange={(e) => set('status', e.target.value)}>
-            {STATUSES.map((s) => <option key={s.value} value={s.value}>{t(`common:statusLabels.${s.value}`, s.label)}</option>)}
-          </select>
-        </Field>
-        <Field label={t('common:priority')}>
-          <select className="input" value={form.priority} onChange={(e) => set('priority', e.target.value)}>
-            {PRIORITIES.map((v) => <option key={v} value={v}>{t(`common:priorityLabels.${v}`, v)}</option>)}
-          </select>
-        </Field>
-        <Field label={t('dealValue')} error={errors.deal_value}>
-          <input type="number" className="input" value={form.deal_value} onChange={(e) => set('deal_value', e.target.value)} />
-        </Field>
+        {canSelectUser && (
+          <Field label={t('assignedTo')} error={errors.assigned_to}>
+            <select className="input" value={form.assigned_to} onChange={(e) => set('assigned_to', e.target.value)}>
+              {!isEditing && <option value="">{t('autoAssign')}</option>}
+              {userOptions.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+          </Field>
+        )}
         <Field label={t('common:email')} error={errors.email}>
           <input type="email" className="input" value={form.email} onChange={(e) => set('email', e.target.value)} />
         </Field>
@@ -140,6 +162,50 @@ export default function ContactForm({ initial, onSubmit, submitting }: Props) {
           onKeyDown={addTag}
         />
       </Field>
+
+      {/* Initial deal section — only shown when creating a new contact */}
+      {!isEditing && (
+        <div className="border border-dark-border rounded-lg p-3 space-y-3">
+          <p className="text-xs font-medium text-text-muted uppercase tracking-wide">{t('initialDeal')}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Field label={t('common:status')}>
+              <select className="input" value={form.initial_status} onChange={(e) => set('initial_status', e.target.value)}>
+                {STATUSES.map((s) => <option key={s.value} value={s.value}>{t(`common:statusLabels.${s.value}`, s.label)}</option>)}
+              </select>
+            </Field>
+            <Field label={t('common:priority')}>
+              <select className="input" value={form.initial_priority} onChange={(e) => set('initial_priority', e.target.value)}>
+                {PRIORITIES.map((v) => <option key={v} value={v}>{t(`common:priorityLabels.${v}`, v)}</option>)}
+              </select>
+            </Field>
+            <Field label={t('dealValue')}>
+              <input type="number" min={0} className="input" value={form.initial_amount} onChange={(e) => set('initial_amount', e.target.value)} />
+            </Field>
+            <Field label={t('dealTitle')}>
+              <input className="input" value={form.initial_title} onChange={(e) => set('initial_title', e.target.value)} />
+            </Field>
+          </div>
+        </div>
+      )}
+
+      {canArchive && (
+        <label className="flex items-center gap-3 cursor-pointer select-none">
+          <div
+            onClick={() => set('is_archived', form.is_archived ? 0 : 1)}
+            className={`relative w-10 h-5 rounded-full transition-colors ${
+              form.is_archived ? 'bg-amber-500' : 'bg-dark-border'
+            }`}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+              form.is_archived ? 'translate-x-5' : ''
+            }`} />
+          </div>
+          <span className="text-sm text-text-secondary">{t('archive')}</span>
+          {!!form.is_archived && (
+            <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400">{t('archived')}</span>
+          )}
+        </label>
+      )}
 
       <button type="submit" disabled={submitting} className="btn-primary w-full h-11">
         {submitting ? '...' : t('common:save')}

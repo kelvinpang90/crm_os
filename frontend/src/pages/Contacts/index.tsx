@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { contactsApi, type ContactListParams } from '@/services/contacts';
 import { useIsMobile } from '@/hooks/useBreakpoint';
-import Badge from '@/components/common/Badge';
+import { useAuthStore } from '@/store/authStore';
+import { formatMYR } from '@/utils/currency';
 import Pagination from '@/components/common/Pagination';
 import SearchInput from '@/components/common/SearchInput';
 import EmptyState from '@/components/common/EmptyState';
@@ -13,20 +14,19 @@ import ContactDetailPanel from './ContactDetailPanel';
 import ContactForm from './ContactForm';
 import type { Contact } from '@/types';
 
-const CONTACT_STATUSES = ['lead', 'following', 'negotiating', 'won', 'lost'] as const;
-const CONTACT_PRIORITIES = ['high', 'mid', 'low'] as const;
-
-type SortField = 'deal_value' | 'last_contact';
+type SortField = 'deal_value' | 'last_contact' | 'created_at';
 
 export default function ContactsPage() {
   const { t } = useTranslation('contacts');
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const user = useAuthStore((s) => s.user);
+  const canArchive = user?.role === 'admin' || user?.role === 'manager';
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [params, setParams] = useState<ContactListParams>({ page: 1, page_size: 20 });
+  const [params, setParams] = useState<ContactListParams>({ page: 1, page_size: 20, is_archived: 0 });
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [selected, setSelected] = useState<Contact | null>(null);
@@ -56,10 +56,23 @@ export default function ContactsPage() {
     } catch { /* ignore */ }
   };
 
+  const handleArchive = async (is_archived: boolean) => {
+    if (!selected) return;
+    try {
+      await contactsApi.archiveContact(selected.id, is_archived);
+      setSelected(null);
+      load();
+    } catch { /* ignore */ }
+  };
+
   const handleUpdate = async (data: Record<string, unknown>) => {
     if (!editing) return;
     try {
-      await contactsApi.updateContact(editing.id, data as any);
+      const { is_archived, ...rest } = data;
+      await contactsApi.updateContact(editing.id, rest as any);
+      if (canArchive && is_archived !== undefined) {
+        await contactsApi.archiveContact(editing.id, !!is_archived);
+      }
       setEditing(null);
       setSelected(null);
       load();
@@ -82,7 +95,21 @@ export default function ContactsPage() {
     <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold text-text-primary">{t('title')}</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-text-primary">{t('title')}</h1>
+          {canArchive && (
+            <button
+              onClick={() => setParams((p) => ({ ...p, is_archived: p.is_archived ? 0 : 1, page: 1 }))}
+              className={`text-xs px-2 py-1 rounded border transition-colors ${
+                params.is_archived
+                  ? 'border-primary text-primary bg-primary/10'
+                  : 'border-dark-border text-text-muted hover:text-text-secondary'
+              }`}
+            >
+              {params.is_archived ? t('viewActive') : t('viewArchived')}
+            </button>
+          )}
+        </div>
         <button onClick={() => navigate('/contacts/new')} className="btn-primary text-sm">
           + {t('newContact')}
         </button>
@@ -96,26 +123,6 @@ export default function ContactsPage() {
             onChange={(v) => setParams((p) => ({ ...p, search: v, page: 1 }))}
           />
         </div>
-        <select
-          className="input w-auto"
-          value={params.status || ''}
-          onChange={(e) => setParams((p) => ({ ...p, status: e.target.value || undefined, page: 1 }))}
-        >
-          <option value="">{t('common:all')} {t('common:status')}</option>
-          {CONTACT_STATUSES.map((v) => (
-            <option key={v} value={v}>{t(`common:statusLabels.${v}`)}</option>
-          ))}
-        </select>
-        <select
-          className="input w-auto"
-          value={params.priority || ''}
-          onChange={(e) => setParams((p) => ({ ...p, priority: e.target.value || undefined, page: 1 }))}
-        >
-          <option value="">{t('common:all')} {t('common:priority')}</option>
-          {CONTACT_PRIORITIES.map((v) => (
-            <option key={v} value={v}>{t(`common:priorityLabels.${v}`)}</option>
-          ))}
-        </select>
       </div>
 
       {/* List */}
@@ -139,9 +146,9 @@ export default function ContactsPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-text-primary truncate">{c.name}</span>
-                    <Badge value={c.status} type="status" size="sm" />
+                    <span className="text-xs text-text-muted">{c.deal_count} {t('deals')}</span>
                   </div>
-                  <p className="text-xs text-text-muted truncate">{c.company || '-'} · RM{Number(c.deal_value).toLocaleString()}</p>
+                  <p className="text-xs text-text-muted truncate">{c.company || '-'} · {formatMYR(c.total_deal_amount)}</p>
                 </div>
               </div>
             </div>
@@ -156,14 +163,13 @@ export default function ContactsPage() {
                 <th className="pb-2 font-medium">{t('common:name')}</th>
                 <th className="pb-2 font-medium">{t('common:company')}</th>
                 <th className="pb-2 font-medium">{t('assignedTo')}</th>
-                <th className="pb-2 font-medium">{t('common:status')}</th>
-                <th className="pb-2 font-medium">{t('common:priority')}</th>
                 <th
                   className="pb-2 font-medium text-right cursor-pointer select-none hover:text-text-primary"
                   onClick={() => handleSort('deal_value')}
                 >
-                  {t('dealValue')}<SortIcon field="deal_value" />
+                  {t('totalDealAmount')}<SortIcon field="deal_value" />
                 </th>
+                <th className="pb-2 font-medium text-right">{t('dealCount')}</th>
                 <th
                   className="pb-2 font-medium pl-6 cursor-pointer select-none hover:text-text-primary"
                   onClick={() => handleSort('last_contact')}
@@ -189,9 +195,8 @@ export default function ContactsPage() {
                   </td>
                   <td className="py-3 text-text-secondary">{c.company || '-'}</td>
                   <td className="py-3 text-text-secondary">{c.assigned_to_name || '-'}</td>
-                  <td className="py-3"><Badge value={c.status} type="status" /></td>
-                  <td className="py-3"><Badge value={c.priority} type="priority" /></td>
-                  <td className="py-3 text-right text-text-primary">RM{Number(c.deal_value).toLocaleString()}</td>
+                  <td className="py-3 text-right text-text-primary">{formatMYR(c.total_deal_amount)}</td>
+                  <td className="py-3 text-right text-text-muted">{c.deal_count}</td>
                   <td className="py-3 pl-6 text-text-muted">{c.last_contact || '-'}</td>
                 </tr>
               ))}
@@ -214,6 +219,8 @@ export default function ContactsPage() {
           onClose={() => setSelected(null)}
           onEdit={() => { setEditing(selected); setSelected(null); }}
           onDelete={() => { setDeleting(selected); setSelected(null); }}
+          onArchive={handleArchive}
+          onRefresh={load}
         />
       )}
 

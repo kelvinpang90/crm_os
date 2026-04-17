@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
+from app.models.deal import Deal
 from app.models.contact import Contact
 from app.utils.response import ok
 
@@ -20,55 +21,68 @@ async def get_pipeline(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    # Scope by role
-    base_where = [Contact.deleted_at.is_(None)]
+    # Scope by role via Deal.assigned_to
+    base_where = [Deal.deleted_at.is_(None)]
 
     if current_user.role == "sales":
-        base_where.append(Contact.assigned_to == current_user.id)
+        base_where.append(Deal.assigned_to == current_user.id)
     elif current_user.role == "manager":
         team_q = select(User.id).where(User.manager_id == current_user.id)
         team_result = await db.execute(team_q)
         team_ids = [r for r in team_result.scalars().all()]
         team_ids.append(current_user.id)
-        base_where.append(Contact.assigned_to.in_(team_ids))
+        base_where.append(Deal.assigned_to.in_(team_ids))
+
+    # Exclude deals whose contact is archived or deleted
+    base_where.append(
+        Deal.contact_id.in_(
+            select(Contact.id).where(
+                Contact.deleted_at.is_(None),
+                Contact.is_archived == 0,
+            )
+        )
+    )
 
     stages = []
     for status in STAGES:
         # Count + sum
         r = await db.execute(
             select(
-                func.count(Contact.id),
-                func.coalesce(func.sum(Contact.deal_value), 0),
-            ).where(*base_where, Contact.status == status)
+                func.count(Deal.id),
+                func.coalesce(func.sum(Deal.amount), 0),
+            ).where(*base_where, Deal.status == status)
         )
         count, total_value = r.one()
 
-        # Contacts
+        # Deals with contact info
         r = await db.execute(
-            select(Contact)
-            .where(*base_where, Contact.status == status)
-            .order_by(Contact.deal_value.desc())
+            select(Deal, Contact.name, Contact.company)
+            .join(Contact, Contact.id == Deal.contact_id)
+            .where(*base_where, Deal.status == status)
+            .order_by(Deal.amount.desc())
             .limit(100)
         )
-        contacts = [
+        deals = [
             {
-                "id": c.id,
-                "name": c.name,
-                "company": c.company,
-                "industry": c.industry,
-                "deal_value": float(c.deal_value),
-                "priority": c.priority,
-                "status": c.status,
-                "updated_at": c.updated_at.isoformat() if c.updated_at else None,
+                "id": row.Deal.id,
+                "contact_id": row.Deal.contact_id,
+                "contact_name": row.name,
+                "contact_company": row.company,
+                "title": row.Deal.title,
+                "amount": float(row.Deal.amount),
+                "priority": row.Deal.priority,
+                "status": row.Deal.status,
+                "assigned_to": row.Deal.assigned_to,
+                "updated_at": row.Deal.updated_at.isoformat() if row.Deal.updated_at else None,
             }
-            for c in r.scalars().all()
+            for row in r.all()
         ]
 
         stages.append({
             "status": status,
             "count": count,
             "total_value": float(total_value),
-            "contacts": contacts,
+            "deals": deals,
         })
 
     return ok(data={"stages": stages})
