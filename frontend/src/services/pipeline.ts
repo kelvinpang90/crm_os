@@ -11,6 +11,7 @@ export interface PipelineStageDeal {
   priority: string;
   status: string;
   assigned_to: string | null;
+  assigned_to_name: string | null;
   updated_at: string | null;
 }
 

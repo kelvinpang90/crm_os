@@ -54,10 +54,11 @@ async def get_pipeline(
         )
         count, total_value = r.one()
 
-        # Deals with contact info
+        # Deals with contact info and assigned user name
         r = await db.execute(
-            select(Deal, Contact.name, Contact.company)
+            select(Deal, Contact.name, Contact.company, User.name.label("assigned_to_name"))
             .join(Contact, Contact.id == Deal.contact_id)
+            .outerjoin(User, User.id == Deal.assigned_to)
             .where(*base_where, Deal.status == status)
             .order_by(Deal.amount.desc())
             .limit(100)
@@ -73,6 +74,7 @@ async def get_pipeline(
                 "priority": row.Deal.priority,
                 "status": row.Deal.status,
                 "assigned_to": row.Deal.assigned_to,
+                "assigned_to_name": row.assigned_to_name,
                 "updated_at": row.Deal.updated_at.isoformat() if row.Deal.updated_at else None,
             }
             for row in r.all()

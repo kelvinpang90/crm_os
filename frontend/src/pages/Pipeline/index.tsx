@@ -8,15 +8,17 @@ import {
   useSensors,
   closestCorners,
 } from '@dnd-kit/core';
-import { pipelineApi, type PipelineStage } from '@/services/pipeline';
+import { pipelineApi, type PipelineStage, type PipelineStageDeal } from '@/services/pipeline';
 import type { DealStatus } from '@/types';
 import PipelineColumn from './PipelineColumn';
+import DealEditModal from './DealEditModal';
 import Skeleton from '@/components/common/Skeleton';
 
 export default function PipelinePage() {
   const { t } = useTranslation('common');
   const [stages, setStages] = useState<PipelineStage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingDeal, setEditingDeal] = useState<PipelineStageDeal | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -106,10 +108,18 @@ export default function PipelinePage() {
               <PipelineColumn
                 key={stage.status}
                 stage={stage}
+                onEditDeal={setEditingDeal}
               />
             ))}
           </div>
         </DndContext>
+      )}
+      {editingDeal && (
+        <DealEditModal
+          deal={editingDeal}
+          onClose={() => setEditingDeal(null)}
+          onSave={() => { setEditingDeal(null); load(); }}
+        />
       )}
     </div>
   );

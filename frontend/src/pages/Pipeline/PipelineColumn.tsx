@@ -3,10 +3,11 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useTranslation } from 'react-i18next';
 import { formatMYR } from '@/utils/currency';
 import PipelineCard from './PipelineCard';
-import type { PipelineStage } from '@/services/pipeline';
+import type { PipelineStage, PipelineStageDeal } from '@/services/pipeline';
 
 interface Props {
   stage: PipelineStage;
+  onEditDeal: (deal: PipelineStageDeal) => void;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -17,7 +18,7 @@ const STATUS_COLORS: Record<string, string> = {
   lost: 'border-t-red-500',
 };
 
-export default function PipelineColumn({ stage }: Props) {
+export default function PipelineColumn({ stage, onEditDeal }: Props) {
   const { t } = useTranslation('common');
   const { setNodeRef, isOver } = useDroppable({ id: stage.status });
   const colorClass = STATUS_COLORS[stage.status] || 'border-t-gray-500';
@@ -49,7 +50,7 @@ export default function PipelineColumn({ stage }: Props) {
       <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[calc(100vh-260px)]">
         <SortableContext items={ids} strategy={verticalListSortingStrategy}>
           {stage.deals.map((d) => (
-            <PipelineCard key={d.id} deal={d} />
+            <PipelineCard key={d.id} deal={d} onEdit={onEditDeal} />
           ))}
         </SortableContext>
         {stage.deals.length === 0 && (
