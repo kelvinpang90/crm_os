@@ -8,7 +8,7 @@ networks:
 
 services:
   backend:
-    image: ghcr.io/kelvin/crm_os-backend:latest
+    image: ghcr.io/kelvinpang90/crm_os-backend:latest
     build: ./backend         # 本地 docker compose build 时用；CI 构建后忽略
     env_file: .env
     environment:
@@ -20,7 +20,7 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
 
   frontend:
-    image: ghcr.io/kelvin/crm_os-frontend:latest
+    image: ghcr.io/kelvinpang90/crm_os-frontend:latest
     build: ./frontend
     networks: [proxy_net]
     restart: unless-stopped
