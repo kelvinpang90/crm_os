@@ -1,76 +1,26 @@
-version: "3.9"
+networks:
+  proxy_net:
+    external: true
+    name: proxy_net          # nginx 所在网络
+  data_net:
+    external: true
+    name: data_net           # mysql / redis 所在网络
 
 services:
-  mysql:
-    image: mysql:8.0
+  backend:
+    image: ghcr.io/kelvin/crm_os-backend:latest
+    build: ./backend         # 本地 docker compose build 时用；CI 构建后忽略
+    env_file: .env
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-123456}
-      MYSQL_DATABASE: crm_os
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  backend_1:
-    build: ./backend
-    env_file: ./backend/.env
-    environment:
-      - INSTANCE_ID=backend_1
-      - DB_HOST=mysql
-      - REDIS_URL=redis://redis:6379/0
-    depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
-
-  backend_2:
-    build: ./backend
-    env_file: ./backend/.env
-    environment:
-      - INSTANCE_ID=backend_2
-      - DB_HOST=mysql
-      - REDIS_URL=redis://redis:6379/0
-    depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - INSTANCE_ID=backend
+      - DB_HOST=infra_mysql
+      - REDIS_URL=redis://infra_redis:6379/0
+    networks: [proxy_net, data_net]
+    restart: unless-stopped
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
 
   frontend:
+    image: ghcr.io/kelvin/crm_os-frontend:latest
     build: ./frontend
-    expose:
-      - "80"
-
-  nginx:
-    image: nginx:1.25-alpine
-    ports:
-      - "80:80"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-    depends_on:
-      - backend_1
-      - backend_2
-      - frontend
-
-volumes:
-  mysql_data:
+    networks: [proxy_net]
+    restart: unless-stopped
