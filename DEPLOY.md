@@ -191,8 +191,8 @@ server {
     listen 443 ssl http2;
     server_name crm.kelvinpeng.com;
 
-    ssl_certificate     /etc/letsencrypt/live/crm.kelvinpeng.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/crm.kelvinpeng.com/privkey.pem;
+    ssl_certificate     /etc/nginx/certs/crm.kelvinpeng.com/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/crm.kelvinpeng.com/privkey.pem;
 
     client_max_body_size 20M;
 
@@ -214,13 +214,9 @@ server {
 }
 ```
 
-申请证书（DNS 已解析到 VPS 后）。`nginx:alpine` 镜像内不带 certbot，必须用宿主机 certbot：
+申请证书（DNS 已解析到 VPS 后）。本基础设施 `infra_nginx` 用 `nginx:alpine`（不带 certbot），且挂载了专用证书目录 `/srv/infra/nginx/certs → /etc/nginx/certs:ro`，所以流程是：宿主机 certbot 申请 → 复制证书到挂载目录 → reload nginx。
 
 ```bash
-# 0. 确认 infra_nginx 挂载了 /etc/letsencrypt（如果没挂，先去 infra 的 docker-compose
-#    给 nginx 服务加 - /etc/letsencrypt:/etc/letsencrypt:ro 然后重建容器）
-docker inspect infra_nginx --format '{{json .Mounts}}' | python3 -m json.tool
-
 # 1. 安装宿主 certbot
 sudo apt update && sudo apt install -y certbot
 
@@ -232,11 +228,18 @@ sudo certbot certonly --standalone \
   -d crm.kelvinpeng.com \
   --email YOUR_EMAIL@example.com --agree-tos -n
 
-# 4. 启回 nginx
+# 4. 复制证书到 nginx 容器可见的目录
+sudo mkdir -p /srv/infra/nginx/certs/crm.kelvinpeng.com
+sudo cp /etc/letsencrypt/live/crm.kelvinpeng.com/fullchain.pem \
+        /srv/infra/nginx/certs/crm.kelvinpeng.com/
+sudo cp /etc/letsencrypt/live/crm.kelvinpeng.com/privkey.pem \
+        /srv/infra/nginx/certs/crm.kelvinpeng.com/
+
+# 5. 启回 nginx
 docker start infra_nginx
 ```
 
-证书路径：`/etc/letsencrypt/live/crm.kelvinpeng.com/{fullchain.pem,privkey.pem}`。
+证书在容器内的路径：`/etc/nginx/certs/crm.kelvinpeng.com/{fullchain.pem,privkey.pem}`（已写入 vhost 配置）。
 
 测试 + 重载共享 nginx：
 
@@ -245,7 +248,17 @@ docker exec infra_nginx nginx -t
 docker exec infra_nginx nginx -s reload
 ```
 
-> 续期：加 cron `sudo certbot renew --pre-hook "docker stop infra_nginx" --post-hook "docker start infra_nginx"`（每周一次），或后续换成 webroot 方式做无停机续期。
+> 自动续期：写一个 deploy-hook 脚本 `/etc/letsencrypt/renewal-hooks/deploy/copy-to-nginx.sh`：
+> ```bash
+> #!/bin/bash
+> for d in $RENEWED_DOMAINS; do
+>   mkdir -p /srv/infra/nginx/certs/$d
+>   cp /etc/letsencrypt/live/$d/fullchain.pem /srv/infra/nginx/certs/$d/
+>   cp /etc/letsencrypt/live/$d/privkey.pem /srv/infra/nginx/certs/$d/
+> done
+> docker exec infra_nginx nginx -s reload
+> ```
+> `chmod +x` 后，certbot 自动 timer (`systemctl status certbot.timer`) 续期时会调用，无需停机；webroot 续期方式也能用同一个 hook。
 
 ### 1.6 GitHub 仓库准备
 
