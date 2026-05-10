@@ -74,8 +74,10 @@ export default function ContactDetailPanel({ contact, onClose, onEdit, onDelete,
     <>
       <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
       <div className={clsx(
-        'fixed top-0 right-0 h-full bg-dark-card border-l border-dark-border z-50 overflow-y-auto transition-transform',
-        isMobile ? 'w-full' : 'w-[420px]'
+        'fixed bg-dark-card z-50 overflow-y-auto transition-transform',
+        isMobile
+          ? 'inset-x-0 bottom-0 top-0 w-full border-t border-dark-border animate-in slide-in-from-bottom'
+          : 'top-0 right-0 h-full w-[420px] border-l border-dark-border'
       )}>
         {/* Header */}
         <div className="sticky top-0 bg-dark-card border-b border-dark-border p-4 flex items-center justify-between">

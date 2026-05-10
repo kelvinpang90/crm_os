@@ -72,7 +72,7 @@ export default function GmvTrendChart({ data, period, onPeriodChange, title }: P
           />
           <Line
             type="monotone"
-            dataKey="gmv"
+            dataKey="value"
             stroke="#3b82f6"
             strokeWidth={2}
             dot={{ fill: '#3b82f6', r: 3 }}

@@ -32,7 +32,7 @@ export interface LeaderboardEntry {
 
 export interface GmvTrendPoint {
   label: string;
-  gmv: number;
+  value: number;
 }
 
 export const dashboardApi = {

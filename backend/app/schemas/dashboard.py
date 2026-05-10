@@ -53,7 +53,7 @@ class LeaderboardResponse(BaseModel):
 
 class GmvTrendPoint(BaseModel):
     label: str
-    gmv: float
+    value: float
 
 
 class GmvTrendResponse(BaseModel):

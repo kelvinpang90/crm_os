@@ -1,6 +1,8 @@
 import { useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import clsx from 'clsx';
+import { useIsMobile } from '@/hooks/useBreakpoint';
+import BottomSheet from './BottomSheet';
 
 interface ModalProps {
   open: boolean;
@@ -13,14 +15,24 @@ interface ModalProps {
 const sizes = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl' };
 
 export default function Modal({ open, onClose, title, children, size = 'md' }: ModalProps) {
+  const isMobile = useIsMobile();
+
   useEffect(() => {
-    if (!open) return;
+    if (!open || isMobile) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  }, [open, onClose, isMobile]);
 
   if (!open) return null;
+
+  if (isMobile) {
+    return (
+      <BottomSheet open={open} onClose={onClose} title={title}>
+        {children}
+      </BottomSheet>
+    );
+  }
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

@@ -5,6 +5,7 @@ import type { Message, PaginatedResponse } from '@/types';
 import MessageList from './MessageList';
 import ConversationView from './ConversationView';
 import Pagination from '@/components/common/Pagination';
+import { useIsMobile } from '@/hooks/useBreakpoint';
 
 type ChannelFilter = 'all' | 'whatsapp' | 'email' | 'unread';
 
@@ -12,6 +13,7 @@ const PAGE_SIZE = 20;
 
 export default function InboxPage() {
   const { t } = useTranslation('inbox');
+  const isMobile = useIsMobile();
   const [filter, setFilter] = useState<ChannelFilter>('all');
   const [messages, setMessages] = useState<Message[]>([]);
   const [total, setTotal] = useState(0);
@@ -89,8 +91,12 @@ export default function InboxPage() {
 
       {/* Content: List + Conversation */}
       <div className="flex-1 flex gap-4 min-h-0">
-        {/* Left: Message List */}
-        <div className="w-full md:w-[380px] flex flex-col border border-dark-border rounded-xl bg-dark-card overflow-hidden shrink-0">
+        {/* Left: Message List — hidden on mobile when a message is selected */}
+        <div
+          className={`${
+            isMobile && selected ? 'hidden' : 'flex'
+          } w-full md:w-[380px] md:flex flex-col border border-dark-border rounded-xl bg-dark-card overflow-hidden shrink-0`}
+        >
           <div className="flex-1 overflow-y-auto p-2">
             {loading ? (
               <p className="text-text-muted text-sm text-center py-8">...</p>
@@ -111,14 +117,32 @@ export default function InboxPage() {
           )}
         </div>
 
-        {/* Right: Conversation */}
-        <div className="hidden md:flex flex-1 border border-dark-border rounded-xl bg-dark-card overflow-hidden">
+        {/* Right: Conversation — full screen on mobile when selected */}
+        <div
+          className={`${
+            isMobile ? (selected ? 'flex' : 'hidden') : 'hidden md:flex'
+          } flex-1 border border-dark-border rounded-xl bg-dark-card overflow-hidden flex-col`}
+        >
           {selected ? (
-            <ConversationView
-              contactId={selected.contact_id || selected.sender_id}
-              contactName={selected.contact_name || selected.sender_id}
-              channel={selected.channel}
-            />
+            <>
+              {isMobile && (
+                <button
+                  onClick={() => setSelected(null)}
+                  className="flex items-center gap-2 px-4 py-3 border-b border-dark-border text-text-secondary hover:text-text-primary min-h-[44px]"
+                  aria-label="Back"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span className="text-sm">{t('common:back', 'Back')}</span>
+                </button>
+              )}
+              <ConversationView
+                contactId={selected.contact_id || selected.sender_id}
+                contactName={selected.contact_name || selected.sender_id}
+                channel={selected.channel}
+              />
+            </>
           ) : (
             <div className="flex-1 flex items-center justify-center text-text-muted text-sm">
               {t('noMessages')}

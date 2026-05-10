@@ -545,7 +545,7 @@ async def get_gmv_trend(db: AsyncSession, period: str) -> dict:
             ).group_by("yr").order_by("yr")
         )
         data = [
-            {"label": str(int(row[0])), "gmv": float(row[1])}
+            {"label": str(int(row[0])), "value": float(row[1])}
             for row in r.all()
         ]
     else:
@@ -563,7 +563,7 @@ async def get_gmv_trend(db: AsyncSession, period: str) -> dict:
             ).group_by("ym").order_by("ym")
         )
         data = [
-            {"label": row[0], "gmv": float(row[1])}
+            {"label": row[0], "value": float(row[1])}
             for row in r.all()
         ]
 
