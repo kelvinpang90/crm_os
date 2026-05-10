@@ -47,7 +47,7 @@ export default function TaskReminder() {
             className="flex items-center gap-2 p-2 rounded-lg bg-dark-hover text-sm"
           >
             <span className={`w-2 h-2 rounded-full shrink-0 ${
-              task.priority === '高' ? 'bg-red-400' : task.priority === '中' ? 'bg-yellow-400' : 'bg-blue-400'
+              task.priority === 'high' ? 'bg-red-400' : task.priority === 'mid' ? 'bg-yellow-400' : 'bg-blue-400'
             }`} />
             <span className="text-text-primary truncate flex-1">{task.title}</span>
             {task.contact_name && (
