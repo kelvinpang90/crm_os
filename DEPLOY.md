@@ -214,51 +214,43 @@ server {
 }
 ```
 
-申请证书（DNS 已解析到 VPS 后）。本基础设施 `infra_nginx` 用 `nginx:alpine`（不带 certbot），且挂载了专用证书目录 `/srv/infra/nginx/certs → /etc/nginx/certs:ro`，所以流程是：宿主机 certbot 申请 → 复制证书到挂载目录 → reload nginx。
+域名启用了 Cloudflare 代理（橙云），用 **Cloudflare Origin Certificate** —— 15 年有效、不用续期、保留 CDN/DDoS 防护：
+
+#### 1.5.1 在 Cloudflare 控制台签发 Origin 证书
+
+1. Cloudflare → 选 `kelvinpeng.com` → **SSL/TLS → Origin Server → Create Certificate**
+2. 默认 RSA 2048，hostnames 填 `crm.kelvinpeng.com` 和 `*.kelvinpeng.com`，有效期 15 年 → Create
+3. 复制 **Origin Certificate** 文本 → 待会保存为 `fullchain.pem`
+4. 复制 **Private Key** 文本 → 保存为 `privkey.pem`（页面关掉就再也看不到，先保存到本地或剪贴板）
+
+#### 1.5.2 上传证书到 VPS
 
 ```bash
-# 1. 安装宿主 certbot
-sudo apt update && sudo apt install -y certbot
-
-# 2. 暂停 nginx 释放 80 端口
-docker stop infra_nginx
-
-# 3. standalone 模式申请（替换为你的真实邮箱）
-sudo certbot certonly --standalone \
-  -d crm.kelvinpeng.com \
-  --email YOUR_EMAIL@example.com --agree-tos -n
-
-# 4. 复制证书到 nginx 容器可见的目录
 sudo mkdir -p /srv/infra/nginx/certs/crm.kelvinpeng.com
-sudo cp /etc/letsencrypt/live/crm.kelvinpeng.com/fullchain.pem \
-        /srv/infra/nginx/certs/crm.kelvinpeng.com/
-sudo cp /etc/letsencrypt/live/crm.kelvinpeng.com/privkey.pem \
-        /srv/infra/nginx/certs/crm.kelvinpeng.com/
+sudo nano /srv/infra/nginx/certs/crm.kelvinpeng.com/fullchain.pem
+# 粘贴 Origin Certificate 全文（含 -----BEGIN/END CERTIFICATE-----）
 
-# 5. 启回 nginx
-docker start infra_nginx
+sudo nano /srv/infra/nginx/certs/crm.kelvinpeng.com/privkey.pem
+# 粘贴 Private Key 全文（含 -----BEGIN/END PRIVATE KEY-----）
+
+sudo chmod 600 /srv/infra/nginx/certs/crm.kelvinpeng.com/privkey.pem
+sudo chmod 644 /srv/infra/nginx/certs/crm.kelvinpeng.com/fullchain.pem
 ```
 
-证书在容器内的路径：`/etc/nginx/certs/crm.kelvinpeng.com/{fullchain.pem,privkey.pem}`（已写入 vhost 配置）。
+容器内路径：`/etc/nginx/certs/crm.kelvinpeng.com/{fullchain.pem,privkey.pem}`（vhost 配置已对应）。
 
-测试 + 重载共享 nginx：
+#### 1.5.3 测试 + 重载共享 nginx
 
 ```bash
 docker exec infra_nginx nginx -t
 docker exec infra_nginx nginx -s reload
 ```
 
-> 自动续期：写一个 deploy-hook 脚本 `/etc/letsencrypt/renewal-hooks/deploy/copy-to-nginx.sh`：
-> ```bash
-> #!/bin/bash
-> for d in $RENEWED_DOMAINS; do
->   mkdir -p /srv/infra/nginx/certs/$d
->   cp /etc/letsencrypt/live/$d/fullchain.pem /srv/infra/nginx/certs/$d/
->   cp /etc/letsencrypt/live/$d/privkey.pem /srv/infra/nginx/certs/$d/
-> done
-> docker exec infra_nginx nginx -s reload
-> ```
-> `chmod +x` 后，certbot 自动 timer (`systemctl status certbot.timer`) 续期时会调用，无需停机；webroot 续期方式也能用同一个 hook。
+#### 1.5.4 Cloudflare SSL 模式
+
+控制台 → **SSL/TLS → Overview → SSL/TLS encryption mode → Full (strict)**。
+
+> Origin Cert 只被 Cloudflare 信任。浏览器看到的是 Cloudflare 边缘证书，无需让浏览器信任 Origin Cert。15 年到期前在控制台再签一张新证书替换文件即可，没有 cron / webroot / standalone 任何续期烦恼。
 
 ### 1.6 GitHub 仓库准备
 
