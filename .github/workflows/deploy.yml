@@ -3,6 +3,11 @@ name: Deploy CRM
 on:
   push:
     branches: [master, main]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'docker-compose.yml'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 concurrency:
