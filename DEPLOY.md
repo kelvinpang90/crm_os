@@ -11,7 +11,7 @@
 | 占位符                       | 含义 | 示例                        |
 |---------------------------|------|---------------------------|
 | `crm.kelvinpeng.com`      | CRM 子域名 | `crm.kelvinpeng.com`      |
-| `utuntu`                  | VPS 登录用户 | `kelvin-peng`             |
+| `ubuntu`                  | VPS 登录用户 | `ubuntu`                  |
 | `103.40.204.95`           | VPS IP 或域名 | `103.40.204.95`           |
 | `/opt/crm_os`             | 项目在 VPS 的目录 | `/opt/crm_os`             |
 | `proxy_net`               | nginx 所在网络（前端层） | `proxy_net`               |
