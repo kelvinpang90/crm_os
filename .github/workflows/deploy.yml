@@ -6,6 +6,7 @@ on:
     paths:
       - 'backend/**'
       - 'frontend/**'
+      - 'nginx/**'
       - 'docker-compose.yml'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
@@ -75,6 +76,7 @@ jobs:
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker compose pull
             docker compose up -d --remove-orphans
+            docker compose exec -T nginx nginx -t && docker compose exec -T nginx nginx -s reload
             docker compose exec -T backend alembic upgrade head
             docker logout ghcr.io
             docker image prune -f
