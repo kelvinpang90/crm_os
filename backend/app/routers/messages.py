@@ -141,6 +141,7 @@ def _msg_to_dict(m: Message) -> dict:
         "external_id": m.external_id,
         "is_read": m.is_read,
         "assigned_to": m.assigned_to,
-        "created_at": m.created_at.isoformat() if m.created_at else None,
+        # See whatsapp_service._msg_to_dict for rationale.
+        "created_at": m.created_at.isoformat() + "Z" if m.created_at else None,
         "contact_name": None,
     }

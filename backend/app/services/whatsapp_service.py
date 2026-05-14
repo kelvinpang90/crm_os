@@ -291,5 +291,8 @@ def _msg_to_dict(m: Message) -> dict:
         "external_id": m.external_id,
         "is_read": m.is_read,
         "assigned_to": m.assigned_to,
-        "created_at": m.created_at.isoformat() if m.created_at else None,
+        # Append "Z" so the frontend parses created_at as UTC instead of local time.
+        # DB stores UTC (default=datetime.utcnow) but isoformat() is naive — without
+        # the suffix dayjs treats it as local time and renders an 8h skew (MYT).
+        "created_at": m.created_at.isoformat() + "Z" if m.created_at else None,
     }
