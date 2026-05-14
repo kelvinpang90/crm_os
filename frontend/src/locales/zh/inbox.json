@@ -14,5 +14,6 @@
   "subject": "主题",
   "replyPlaceholder": "输入回复内容...",
   "inbound": "收到",
-  "outbound": "发送"
+  "outbound": "发送",
+  "sendFailed": "发送失败"
 }

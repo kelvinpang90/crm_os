@@ -11,6 +11,7 @@ from app.models.message import Message
 from app.models.contact import Contact
 from app.schemas.message import WhatsAppSendRequest, EmailSendRequest
 from app.services import whatsapp_service, email_service
+from app.services.whatsapp_service import WhatsAppSendError
 from app.utils.response import ok, fail
 
 router = APIRouter()
@@ -106,9 +107,12 @@ async def send_whatsapp(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    data = await whatsapp_service.send_message(db, body.contact_id, body.message)
-    if not data:
-        return fail(message="Contact not found or has no phone number", code=400)
+    try:
+        data = await whatsapp_service.send_message(db, body.contact_id, body.message)
+    except WhatsAppSendError as exc:
+        if exc.reason == "no_phone":
+            return fail(message="Contact not found or has no phone number", code="NO_PHONE", status_code=400)
+        return fail(message=f"WhatsApp API error: {exc.detail}", code="API_ERROR", status_code=502)
     return ok(data=data)
 
 

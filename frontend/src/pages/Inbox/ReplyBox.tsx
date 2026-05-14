@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
 import { messagesApi } from '@/services/messages';
 
 interface Props {
@@ -27,7 +28,10 @@ export default function ReplyBox({ contactId, channel, onSent }: Props) {
       setMessage('');
       setSubject('');
       onSent();
-    } catch { /* ignore */ }
+    } catch (err: any) {
+      const apiMsg = err?.response?.data?.error?.message;
+      toast.error(apiMsg || t('sendFailed'));
+    }
     setSending(false);
   };
 

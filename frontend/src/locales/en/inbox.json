@@ -14,5 +14,6 @@
   "subject": "Subject",
   "replyPlaceholder": "Type your reply...",
   "inbound": "Received",
-  "outbound": "Sent"
+  "outbound": "Sent",
+  "sendFailed": "Failed to send message"
 }
