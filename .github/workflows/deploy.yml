@@ -76,7 +76,10 @@ jobs:
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker compose pull
             docker compose up -d --remove-orphans
-            docker compose exec -T nginx nginx -t && docker compose exec -T nginx nginx -s reload
             docker compose exec -T backend alembic upgrade head
+            # Nginx runs in /srv/infra (shared infra), not in this compose project.
+            # When nginx/conf.d/crm.conf changes, sync it manually:
+            #   sudo cp /opt/crm_os/nginx/conf.d/crm.conf /srv/infra/nginx/conf.d/crm.conf
+            #   sudo docker exec infra_nginx nginx -t && sudo docker exec infra_nginx nginx -s reload
             docker logout ghcr.io
             docker image prune -f
