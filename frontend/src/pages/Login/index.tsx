@@ -3,6 +3,12 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/store/authStore';
 
+const DEMO_ACCOUNTS = [
+  { key: 'admin', label: 'Admin', email: 'admin@crm.com', password: 'Admin123' },
+  { key: 'manager', label: 'Manager', email: 'sarah@crm.com', password: 'Manager123' },
+  { key: 'sales', label: 'Sales', email: 'ryan@crm.com', password: 'Sales123' },
+];
+
 export default function LoginPage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -26,6 +32,13 @@ export default function LoginPage() {
     }
     setLocalErrors(errors);
     return Object.keys(errors).length === 0;
+  };
+
+  const fillDemo = (account: (typeof DEMO_ACCOUNTS)[number]) => {
+    setEmail(account.email);
+    setPassword(account.password);
+    setLocalErrors({});
+    clearError();
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -157,6 +170,26 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+        </div>
+
+        {/* Demo Accounts */}
+        <div className="mt-6">
+          <p className="text-xs text-text-muted mb-2 text-center">
+            Demo Accounts (click to fill)
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {DEMO_ACCOUNTS.map((account) => (
+              <button
+                key={account.key}
+                type="button"
+                onClick={() => fillDemo(account)}
+                className="p-3 rounded-lg bg-dark-card border border-dark-border hover:border-primary transition-colors text-left"
+              >
+                <div className="text-sm font-medium text-text-primary">{account.label}</div>
+                <div className="text-xs text-text-muted mt-0.5 break-all">{account.email}</div>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Register link */}
