@@ -230,6 +230,7 @@ sudo docker compose up -d backend
 | 前端 send 502 | token 过期 / phone_number_id 错；后端日志会打 `WhatsApp send failed status=...` 含详细 body。 |
 | 前端 send 400 NO_PHONE | contact.phone 为空——这是数据问题，不是凭证问题。 |
 | `status=failed` 一直出现 | recipient 没加入 Test Number 的 Recipient list（沙盒限制）；或 24h 会话窗口外只能发模板。 |
+| `status=failed` 且 errors 含 `131031 Business Account locked` | **Business Verification 未通过**（141010）。即使沙盒 Test Number 向 recipient list 内号码发送也会被 Meta 阻断。详见附录 C。 |
 
 ## 附录 B：Permanent Access Token 生成详细路径
 
@@ -244,6 +245,39 @@ business.facebook.com
         → Permissions: whatsapp_business_messaging + whatsapp_business_management
         → 复制（只显示一次！）
 ```
+
+## 附录 C：131031 / 141010 出站阻断（Business Verification）
+
+**症状**：入站全部正常，statuses 回执也能收到，但前端 send 之后后端日志立刻打：
+
+```
+WhatsApp status=failed external_id=wamid.xxx
+  errors=[{'code': 131031, 'title': 'Business Account locked',
+           'message': 'Business Account locked',
+           'error_data': {'details': 'Business account has been locked.'}}]
+```
+
+**根因**：用 `health_status` API 自查：
+
+```bash
+TOKEN=$(grep '^WHATSAPP_ACCESS_TOKEN=' /opt/crm_os/.env | cut -d= -f2-)
+curl -s "https://graph.facebook.com/v18.0/<PHONE_NUMBER_ID>?fields=health_status" \
+  -H "Authorization: Bearer ${TOKEN}" | python3 -m json.tool
+```
+
+如果返回里 BUSINESS entity 的 errors 含 `141010 The Business has not passed business verification`，就是这个问题。**自 2024 年起 Meta 收紧：未通过 Business Verification 的 WABA 即使是沙盒 Test Number 向 recipient list 内号码发送也会被阻断。**
+
+**解法（按推荐顺序）**：
+
+1. **完成 Business Verification（推荐长期方案）**
+   - 需要营业执照（马来西亚 SSM 个人独资也行，~RM30/年）+ 地址证明（水电账单）
+   - business.facebook.com → Business Settings → Security Center → Start Verification
+   - 上传文件 → 2-7 天审核
+   - 通过后 141010 消失，永久解锁
+2. **借用现有公司认证**：用合作公司营业执照走 Business Verification。风险：WABA 归属对方。
+3. **仅入站模式**：CRM 只用作消息归档，回复由销售用个人 WhatsApp 手动完成。0 成本立刻可用。
+
+**注意**：填补 Business Info（Legal Name / Country / Website）只能消除 `131000`；加支付方式只能消除 `141006`；都消不掉 `141010`。**141010 唯一解法是 Business Verification**。
 
 ## 不在本次范围
 
