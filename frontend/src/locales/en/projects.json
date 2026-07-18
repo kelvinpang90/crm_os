@@ -1,0 +1,81 @@
+{
+  "title": "Project tracking",
+  "subtitle": "Progress and alerts across all active projects",
+  "new_project": "New project",
+  "edit_project": "Edit project",
+  "summary": {
+    "in_progress": "In progress",
+    "urgent": "Needs chasing (>5d)",
+    "watch": "Watch (4–5d)",
+    "delivered": "Delivered this month"
+  },
+  "alert": {
+    "normal": "On track",
+    "watch": "Watch",
+    "urgent": "Needs chasing",
+    "done": "Delivered"
+  },
+  "filter": {
+    "all_pm": "All managers",
+    "all_alert": "All statuses"
+  },
+  "column": {
+    "project": "Project / address",
+    "progress": "Progress (12 steps)",
+    "manager": "Manager",
+    "stale": "Idle"
+  },
+  "step_label": "Step {{step}} · {{name}}",
+  "stale_days": "{{count}}d",
+  "advance": "Advance to next step",
+  "advance_done": "At final step",
+  "timeline_title": "Step timeline",
+  "photos_title": "Photos",
+  "updated_by": "Updated by",
+  "state": {
+    "current": "In progress",
+    "optional": "Optional"
+  },
+  "fields": {
+    "customer": "Customer",
+    "address": "Address",
+    "service_type": "Service type",
+    "manager": "Project manager",
+    "manager_placeholder": "Select a manager",
+    "manager_add_new": "+ Add new manager…",
+    "manager_new_placeholder": "Enter manager name",
+    "manager_pick_existing": "Pick existing",
+    "current_step": "Current step"
+  },
+  "actions": {
+    "edit": "Edit",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving…",
+    "close": "Close",
+    "confirm_delete": "Confirm delete"
+  },
+  "delete_confirm": {
+    "title": "Delete project",
+    "message": "Delete \"{{name}}\"? This can't be undone."
+  },
+  "validation": {
+    "customer_required": "Customer name is required"
+  },
+  "no_projects": "No projects yet",
+  "steps": {
+    "enquiry": "Enquiry",
+    "inspection_scheduled": "Inspection scheduled",
+    "inspection_done": "Inspection done",
+    "quotation_sent": "Quotation sent",
+    "confirmed": "Confirmed",
+    "deposit_received": "Deposit received",
+    "work_scheduled": "Work scheduled",
+    "in_progress": "In progress",
+    "quality_check": "Quality check",
+    "completion_photos": "Completion photos",
+    "handover_payment": "Handover & payment",
+    "warranty_active": "Warranty active"
+  }
+}

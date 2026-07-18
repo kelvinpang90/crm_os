@@ -12,6 +12,7 @@ const navItems = [
   { path: '/dashboard', icon: DashboardIcon, labelKey: 'nav.dashboard' },
   { path: '/contacts', icon: ContactsIcon, labelKey: 'nav.contacts' },
   { path: '/pipeline', icon: PipelineIcon, labelKey: 'nav.pipeline' },
+  { path: '/projects', icon: ProjectsIcon, labelKey: 'nav.projects' },
   { path: '/tasks', icon: TasksIcon, labelKey: 'nav.tasks' },
   { path: '/inbox', icon: InboxIcon, labelKey: 'nav.inbox' },
   { path: '/analytics', icon: AnalyticsIcon, labelKey: 'nav.analytics' },
@@ -139,6 +140,14 @@ function PipelineIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+    </svg>
+  );
+}
+
+function ProjectsIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-4m-6 0H3m2 0h4M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-4a1 1 0 011-1h2a1 1 0 011 1v4h-3z" />
     </svg>
   );
 }

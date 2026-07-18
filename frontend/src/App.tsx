@@ -10,6 +10,7 @@ const DashboardPage = lazy(() => import('@/pages/Dashboard'));
 const ContactsPage = lazy(() => import('@/pages/Contacts'));
 const NewContactPage = lazy(() => import('@/pages/Contacts/NewContact'));
 const PipelinePage = lazy(() => import('@/pages/Pipeline'));
+const ProjectsPage = lazy(() => import('@/pages/Projects'));
 const TasksPage = lazy(() => import('@/pages/Tasks'));
 const InboxPage = lazy(() => import('@/pages/Inbox'));
 const AnalyticsPage = lazy(() => import('@/pages/Analytics'));
@@ -58,6 +59,7 @@ function App() {
           <Route path="/contacts" element={<ContactsPage />} />
           <Route path="/contacts/new" element={<NewContactPage />} />
           <Route path="/pipeline" element={<PipelinePage />} />
+          <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/tasks" element={<TasksPage />} />
           <Route path="/inbox" element={<InboxPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />

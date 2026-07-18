@@ -8,6 +8,7 @@ import zhContacts from '@/locales/zh/contacts.json';
 import zhTasks from '@/locales/zh/tasks.json';
 import zhInbox from '@/locales/zh/inbox.json';
 import zhSettings from '@/locales/zh/settings.json';
+import zhProjects from '@/locales/zh/projects.json';
 
 import enCommon from '@/locales/en/common.json';
 import enDashboard from '@/locales/en/dashboard.json';
@@ -15,6 +16,7 @@ import enContacts from '@/locales/en/contacts.json';
 import enTasks from '@/locales/en/tasks.json';
 import enInbox from '@/locales/en/inbox.json';
 import enSettings from '@/locales/en/settings.json';
+import enProjects from '@/locales/en/projects.json';
 
 i18n
   .use(LanguageDetector)
@@ -28,6 +30,7 @@ i18n
         tasks: zhTasks,
         inbox: zhInbox,
         settings: zhSettings,
+        projects: zhProjects,
       },
       en: {
         common: enCommon,
@@ -36,11 +39,12 @@ i18n
         tasks: enTasks,
         inbox: enInbox,
         settings: enSettings,
+        projects: enProjects,
       },
     },
     fallbackLng: 'zh',
     defaultNS: 'common',
-    ns: ['common', 'dashboard', 'contacts', 'tasks', 'inbox', 'settings'],
+    ns: ['common', 'dashboard', 'contacts', 'tasks', 'inbox', 'settings', 'projects'],
     interpolation: { escapeValue: false },
     detection: {
       order: ['localStorage', 'navigator'],

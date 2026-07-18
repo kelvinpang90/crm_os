@@ -133,6 +133,41 @@ export interface SalesTarget {
   updated_at: string;
 }
 
+// === Project Tracking (self-contained module) ===
+// Data-independent from the CRM core: own entities, own mock service layer.
+export type ProjectAlertLevel = 'normal' | 'watch' | 'urgent' | 'done';
+
+export interface ProjectStepHistory {
+  id: string;
+  project_id: string;
+  step_no: number; // 1-12
+  entered_at: string; // ISO datetime the project entered this step
+  updated_by: string; // project manager name
+  note: string | null;
+  photos: string[]; // file labels, used by steps 3 (inspection) & 10 (completion)
+}
+
+export interface Project {
+  id: string;
+  customer_name: string;
+  address: string;
+  service_type: string;
+  project_manager: string;
+  current_step: number; // 1-12
+  created_at: string;
+  last_updated_at: string;
+  history: ProjectStepHistory[];
+}
+
+// Editable fields for create/update (matches backend ProjectCreate/Update).
+export interface ProjectInput {
+  customer_name: string;
+  address: string;
+  service_type: string;
+  project_manager: string;
+  current_step: number;
+}
+
 // === API Response ===
 export interface ApiResponse<T = unknown> {
   success: boolean;
