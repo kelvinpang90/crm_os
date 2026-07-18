@@ -2,6 +2,10 @@ fastapi==0.111.0
 uvicorn[standard]==0.29.0
 sqlalchemy[asyncio]==2.0.30
 aiomysql==0.2.0
+# PyMySQL 1.2.0 changed Connection.ping() default to reconnect=False, which makes
+# SQLAlchemy's pymysql dialect call ping() with no args; the aiomysql async adapter
+# requires 'reconnect' positionally -> TypeError on every pool_pre_ping. Pin <1.2.0.
+pymysql==1.1.1
 alembic==1.13.1
 pydantic[email]==2.7.0
 pydantic-settings==2.2.1
