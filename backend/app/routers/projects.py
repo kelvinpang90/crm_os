@@ -62,7 +62,10 @@ async def update_project(
     db: Annotated[AsyncSession, Depends(get_db)],
     _current_user: Annotated[User, Depends(get_current_user)],
 ):
-    project = await project_service.update_project(db, project_id, body.model_dump())
+    try:
+        project = await project_service.update_project(db, project_id, body.model_dump())
+    except ValueError as exc:
+        return fail(str(exc), code="VALIDATION_ERROR", status_code=400)
     if not project:
         return fail("Project not found", code="NOT_FOUND", status_code=404)
     await db.commit()
@@ -89,7 +92,17 @@ async def advance_project(
     db: Annotated[AsyncSession, Depends(get_db)],
     _current_user: Annotated[User, Depends(get_current_user)],
 ):
-    project = await project_service.advance_step(db, project_id, body.note)
+    try:
+        project = await project_service.advance_step(
+            db,
+            project_id,
+            body.note,
+            body.satisfaction_score,
+            body.customer_feedback,
+            body.signature_data,
+        )
+    except ValueError as exc:
+        return fail(str(exc), code="VALIDATION_ERROR", status_code=400)
     if not project:
         return fail("Project not found", code="NOT_FOUND", status_code=404)
     await db.commit()

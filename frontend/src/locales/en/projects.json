@@ -64,6 +64,25 @@
     "customer_required": "Customer name is required"
   },
   "no_projects": "No projects yet",
+  "warranty_confirm": {
+    "title": "Warranty confirmation",
+    "intro": "Before entering warranty, have the customer confirm satisfaction and sign.",
+    "score_label": "Satisfaction score",
+    "feedback_label": "Customer feedback (optional)",
+    "feedback_placeholder": "Any comments or suggestions from the customer…",
+    "signature_label": "Customer signature",
+    "signature_placeholder": "Have the customer sign in this area",
+    "clear_signature": "Clear signature",
+    "submit": "Confirm & advance",
+    "submitting": "Submitting…",
+    "validation_score": "Please select a satisfaction score",
+    "validation_signature": "Customer signature is required"
+  },
+  "warranty_record": {
+    "score_label": "Satisfaction",
+    "feedback_label": "Customer feedback",
+    "signature_label": "Customer signature"
+  },
   "steps": {
     "enquiry": "Enquiry",
     "inspection_scheduled": "Inspection scheduled",

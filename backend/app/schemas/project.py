@@ -39,6 +39,19 @@ class ProjectUpdate(BaseModel):
 
 class ProjectAdvance(BaseModel):
     note: Optional[str] = None
+    # Warranty confirmation: only required when this advance lands on step 12
+    # (validated in the service layer, since that depends on the project's
+    # current step, not just this request body).
+    satisfaction_score: Optional[int] = None
+    customer_feedback: Optional[str] = None
+    signature_data: Optional[str] = None
+
+    @field_validator("satisfaction_score")
+    @classmethod
+    def score_in_range(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and not (1 <= v <= 10):
+            raise ValueError("satisfaction_score must be between 1 and 10")
+        return v
 
 
 class ProjectStepHistoryResponse(BaseModel):
@@ -60,4 +73,8 @@ class ProjectResponse(BaseModel):
     current_step: int
     created_at: datetime
     last_updated_at: datetime
+    satisfaction_score: Optional[int] = None
+    customer_feedback: Optional[str] = None
+    signature_data: Optional[str] = None
+    signed_at: Optional[datetime] = None
     history: List[ProjectStepHistoryResponse] = []

@@ -30,9 +30,14 @@ export const projectsApi = {
     await api.delete<ApiResponse<null>>(`/projects/${id}`);
   },
 
-  // note is the only advance payload; the backend records the project manager.
-  advanceStep: async (id: string, _updatedBy?: string, note: string | null = null): Promise<Project> => {
-    const res = await api.post<ApiResponse<Project>>(`/projects/${id}/advance`, { note });
+  // `confirmation` is only required by the backend when this advance lands on
+  // step 12 (warranty_active) — see WarrantyConfirmModal.
+  advanceStep: async (
+    id: string,
+    note: string | null = null,
+    confirmation?: { satisfaction_score: number; customer_feedback?: string; signature_data: string }
+  ): Promise<Project> => {
+    const res = await api.post<ApiResponse<Project>>(`/projects/${id}/advance`, { note, ...confirmation });
     return res.data.data;
   },
 

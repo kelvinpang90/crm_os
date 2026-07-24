@@ -1,10 +1,13 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import String, Integer, DateTime, Index, JSON
+from sqlalchemy import String, Integer, DateTime, Index, JSON, Text
+from sqlalchemy.dialects import mysql
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
+
+_LongText = Text().with_variant(mysql.LONGTEXT(), "mysql")
 
 
 class Project(Base):
@@ -24,6 +27,13 @@ class Project(Base):
     service_type: Mapped[str] = mapped_column(String(100), nullable=False, default="")
     project_manager: Mapped[str] = mapped_column(String(100), nullable=False, default="")
     current_step: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    # Warranty confirmation (step 12 gate): captured once when the project first
+    # advances into warranty_active, then read-only. Nullable for projects that
+    # reached step 12 before this feature existed (no backfill).
+    satisfaction_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    customer_feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
+    signature_data: Mapped[str | None] = mapped_column(_LongText, nullable=True)
+    signed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.utcnow

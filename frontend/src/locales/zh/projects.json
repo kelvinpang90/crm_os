@@ -64,6 +64,25 @@
     "customer_required": "请填写客户名称"
   },
   "no_projects": "暂无项目",
+  "warranty_confirm": {
+    "title": "保修期确认",
+    "intro": "进入保修期前，请顾客确认满意度并签名。",
+    "score_label": "满意度评分",
+    "feedback_label": "顾客意见（选填）",
+    "feedback_placeholder": "顾客的建议或反馈…",
+    "signature_label": "顾客签名",
+    "signature_placeholder": "请顾客在此区域签名",
+    "clear_signature": "清除签名",
+    "submit": "确认并推进",
+    "submitting": "提交中…",
+    "validation_score": "请选择满意度评分",
+    "validation_signature": "请让顾客签名"
+  },
+  "warranty_record": {
+    "score_label": "满意度",
+    "feedback_label": "顾客意见",
+    "signature_label": "顾客签名"
+  },
   "steps": {
     "enquiry": "询盘",
     "inspection_scheduled": "现场勘查排期",

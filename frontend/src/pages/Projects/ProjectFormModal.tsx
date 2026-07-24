@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { projectsApi } from '@/services/projects';
-import { PROJECT_STEPS, stepName } from './steps';
+import { PROJECT_STEPS, TOTAL_STEPS, stepName } from './steps';
 import type { Project, ProjectInput } from '@/types';
 
 // Sentinel select value that switches the manager field to free-text entry.
@@ -37,6 +37,15 @@ export default function ProjectFormModal({ project, managers, onClose, onSaved }
 
   // No existing managers to pick from -> go straight to free-text entry.
   const [addingNew, setAddingNew] = useState(managerOptions.length === 0);
+
+  // Warranty (step 12) can only be entered via "advance" + the confirmation
+  // form, never by editing current_step directly. Keep it selectable only if
+  // the project is already there (so an existing warranty project's own value
+  // stays valid), never as a new destination.
+  const stepOptions = useMemo(
+    () => PROJECT_STEPS.filter((s) => s.no < TOTAL_STEPS || s.no === project?.current_step),
+    [project]
+  );
 
   const set = <K extends keyof ProjectInput>(key: K, value: ProjectInput[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -170,7 +179,7 @@ export default function ProjectFormModal({ project, managers, onClose, onSaved }
                 onChange={(e) => set('current_step', Number(e.target.value))}
                 className={inputCls}
               >
-                {PROJECT_STEPS.map((s) => (
+                {stepOptions.map((s) => (
                   <option key={s.no} value={s.no}>
                     {s.no}. {stepName(s.no, t)}
                   </option>

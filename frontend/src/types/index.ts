@@ -156,6 +156,13 @@ export interface Project {
   current_step: number; // 1-12
   created_at: string;
   last_updated_at: string;
+  // Warranty confirmation (step 12 gate): set once when the project first
+  // advances into warranty_active; null for projects that reached step 12
+  // before this feature existed.
+  satisfaction_score: number | null; // 1-10
+  customer_feedback: string | null;
+  signature_data: string | null; // base64 PNG data URI
+  signed_at: string | null;
   history: ProjectStepHistory[];
 }
 

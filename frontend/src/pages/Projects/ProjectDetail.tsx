@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import { projectsApi } from '@/services/projects';
 import { PROJECT_STEPS, TOTAL_STEPS, stepName, getAlertLevel } from './steps';
+import WarrantyConfirmModal from './WarrantyConfirmModal';
 import type { Project, ProjectAlertLevel, ProjectStepHistory } from '@/types';
 
 const BADGE: Record<ProjectAlertLevel, string> = {
@@ -23,23 +24,41 @@ interface Props {
 export default function ProjectDetail({ project, onClose, onChanged, onEdit, onDelete }: Props) {
   const { t } = useTranslation('projects');
   const [advancing, setAdvancing] = useState(false);
+  const [showWarrantyConfirm, setShowWarrantyConfirm] = useState(false);
 
   const level = getAlertLevel(project);
   const atFinal = project.current_step >= TOTAL_STEPS;
+  const entersWarranty = project.current_step + 1 === TOTAL_STEPS;
 
   const historyByStep = new Map<number, ProjectStepHistory>();
   for (const h of project.history) historyByStep.set(h.step_no, h);
 
   const handleAdvance = async () => {
     if (atFinal) return;
+    // Entering step 12 (warranty_active) is gated behind the satisfaction
+    // score + signature form instead of advancing directly.
+    if (entersWarranty) {
+      setShowWarrantyConfirm(true);
+      return;
+    }
     setAdvancing(true);
     try {
-      const updated = await projectsApi.advanceStep(project.id, project.project_manager);
+      const updated = await projectsApi.advanceStep(project.id);
       onChanged(updated);
     } catch {
       /* ignore */
     }
     setAdvancing(false);
+  };
+
+  const handleWarrantySubmit = async (payload: {
+    satisfaction_score: number;
+    customer_feedback: string;
+    signature_data: string;
+  }) => {
+    const updated = await projectsApi.advanceStep(project.id, null, payload);
+    onChanged(updated);
+    setShowWarrantyConfirm(false);
   };
 
   return (
@@ -167,6 +186,29 @@ export default function ProjectDetail({ project, onClose, onChanged, onEdit, onD
                           </div>
                         </div>
                       )}
+
+                      {isLast && project.satisfaction_score != null && (
+                        <div className="mt-2 space-y-1.5">
+                          <p className="text-xs text-text-muted">
+                            {t('warranty_record.score_label')}: {project.satisfaction_score}/10
+                          </p>
+                          {project.customer_feedback && (
+                            <p className="text-xs text-text-muted">
+                              {t('warranty_record.feedback_label')}: {project.customer_feedback}
+                            </p>
+                          )}
+                          {project.signature_data && (
+                            <div>
+                              <p className="text-[11px] text-text-muted mb-1">{t('warranty_record.signature_label')}</p>
+                              <img
+                                src={project.signature_data}
+                                alt={t('warranty_record.signature_label')}
+                                className="h-16 bg-dark-bg border border-dark-border rounded-lg"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </li>
                 );
@@ -175,6 +217,13 @@ export default function ProjectDetail({ project, onClose, onChanged, onEdit, onD
           </div>
         </div>
       </div>
+
+      <WarrantyConfirmModal
+        open={showWarrantyConfirm}
+        customerName={project.customer_name}
+        onClose={() => setShowWarrantyConfirm(false)}
+        onSubmit={handleWarrantySubmit}
+      />
     </>
   );
 }

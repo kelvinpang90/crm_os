@@ -82,6 +82,12 @@ async def update_project(db: AsyncSession, project_id: str, data: dict) -> Optio
         return None
 
     old_step = project.current_step
+    requested_step = data.get("current_step")
+    if requested_step is not None and requested_step == MAX_STEP and old_step != MAX_STEP:
+        # Editing must not be a side door into warranty_active: only advance_step
+        # (which collects the satisfaction score + signature) may do that.
+        raise ValueError("Cannot set current_step to 12 via edit; use advance instead")
+
     for key in ("customer_name", "address", "service_type", "project_manager", "current_step"):
         if data.get(key) is not None:
             setattr(project, key, data[key])
@@ -108,7 +114,14 @@ async def delete_project(db: AsyncSession, project_id: str) -> bool:
     return True
 
 
-async def advance_step(db: AsyncSession, project_id: str, note: Optional[str] = None) -> Optional[dict]:
+async def advance_step(
+    db: AsyncSession,
+    project_id: str,
+    note: Optional[str] = None,
+    satisfaction_score: Optional[int] = None,
+    customer_feedback: Optional[str] = None,
+    signature_data: Optional[str] = None,
+) -> Optional[dict]:
     project = await _get(db, project_id)
     if not project:
         return None
@@ -118,6 +131,19 @@ async def advance_step(db: AsyncSession, project_id: str, note: Optional[str] = 
 
     now = datetime.utcnow()
     next_step = project.current_step + 1
+
+    if next_step == MAX_STEP:
+        # Gate: entering warranty_active requires the customer satisfaction
+        # score + signature; feedback text stays optional.
+        if satisfaction_score is None or not signature_data:
+            raise ValueError(
+                "satisfaction_score and signature_data are required to advance into warranty_active"
+            )
+        project.satisfaction_score = satisfaction_score
+        project.customer_feedback = customer_feedback
+        project.signature_data = signature_data
+        project.signed_at = now
+
     db.add(_history_entry(project.id, next_step, project.project_manager, now, note))
     project.current_step = next_step
     project.updated_at = now
@@ -192,6 +218,10 @@ def _project_to_dict(project: Project, history: list[ProjectStepHistory]) -> dic
         "current_step": project.current_step,
         "created_at": project.created_at.isoformat() if project.created_at else None,
         "last_updated_at": project.updated_at.isoformat() if project.updated_at else None,
+        "satisfaction_score": project.satisfaction_score,
+        "customer_feedback": project.customer_feedback,
+        "signature_data": project.signature_data,
+        "signed_at": project.signed_at.isoformat() if project.signed_at else None,
         "history": [
             {
                 "id": h.id,
