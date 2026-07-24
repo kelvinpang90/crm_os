@@ -63,7 +63,7 @@ export default function WarrantyConfirmModal({ open, customerName, onClose, onSu
     const { x, y } = getCanvasPoint(e);
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
-    ctx.strokeStyle = '#e5e7eb';
+    ctx.strokeStyle = '#000000';
     ctx.lineTo(x, y);
     ctx.stroke();
     setHasSignature(true);
