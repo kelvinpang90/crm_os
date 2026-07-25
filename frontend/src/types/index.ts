@@ -30,11 +30,51 @@ export interface Contact {
   last_contact: string | null;
   tags: string[] | null;
   is_archived: number;
+  autocount_customer_code: string | null;
   total_deal_amount: number;
   deal_count: number;
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+// === AutoCount ===
+export type AutocountDocType = 'invoice' | 'quotation';
+
+export interface AutocountLineItem {
+  product_code: string | null;
+  description: string | null;
+  qty: number | null;
+  unit: string | null;
+  unit_price: number | null;
+  discount_amt: number | null;
+  sub_total: number | null;
+}
+
+export interface AutocountDocument {
+  id: string;
+  doc_type: AutocountDocType;
+  doc_no: string;
+  customer_code: string;
+  contact_id: string | null;
+  status: string;
+  total_amount: number;
+  currency_code: string;
+  doc_date: string | null;
+  outstanding_amount: number | null;
+  due_date: string | null;
+  validity: string | null;
+  line_items: AutocountLineItem[];
+  synced_at: string;
+}
+
+export interface AutocountSyncResult {
+  customers_synced: number;
+  invoices_synced: number;
+  invoices_unmatched: number;
+  quotations_synced: number;
+  quotations_unmatched: number;
+  synced_at: string;
 }
 
 // === Deal ===

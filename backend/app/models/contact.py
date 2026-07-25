@@ -26,6 +26,10 @@ class Contact(Base):
     last_contact: Mapped[date | None] = mapped_column(Date, nullable=True)
     tags: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     is_archived: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    # Manual mapping to an AutoCount Cloud Accounting customer (Debtor.accNo).
+    # No fuzzy matching: invoice/quotation sync only links documents whose
+    # debtorCode equals this value.
+    autocount_customer_code: Mapped[str | None] = mapped_column(String(12), nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.utcnow
@@ -39,4 +43,5 @@ class Contact(Base):
         Index("idx_assigned_to", "assigned_to"),
         Index("idx_deleted_at", "deleted_at"),
         Index("idx_is_archived", "is_archived"),
+        Index("idx_autocount_customer_code", "autocount_customer_code"),
     )

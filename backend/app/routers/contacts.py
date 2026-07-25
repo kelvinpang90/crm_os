@@ -11,7 +11,7 @@ from app.dependencies import get_current_user, require_role
 from app.models.user import User
 from app.schemas.contact import ContactCreate, ContactUpdate, ArchiveRequest
 from app.schemas.activity import ActivityCreate
-from app.services import contact_service, activity_service
+from app.services import contact_service, activity_service, autocount_service
 from app.utils.response import ok, fail
 
 router = APIRouter()
@@ -188,6 +188,18 @@ async def delete_contact(
     if not deleted:
         return fail("Contact not found", code="NOT_FOUND", status_code=404)
     return ok(message="Deleted successfully")
+
+
+# --- AutoCount routes ---
+
+@router.get("/{contact_id}/autocount-documents")
+async def list_autocount_documents(
+    contact_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _current_user: Annotated[User, Depends(get_current_user)],
+):
+    documents = await autocount_service.list_contact_documents(db, contact_id)
+    return ok(data=documents)
 
 
 # --- Activity routes ---

@@ -9,6 +9,7 @@ from app.models.message import Message
 from app.models.routing_rule import RoutingRule
 from app.models.sales_target import SalesTarget
 from app.models.project import Project, ProjectStepHistory
+from app.models.autocount_document import AutocountDocument
 
 __all__ = [
     "Base",
@@ -23,4 +24,5 @@ __all__ = [
     "SalesTarget",
     "Project",
     "ProjectStepHistory",
+    "AutocountDocument",
 ]

@@ -38,6 +38,25 @@
   "unarchive": "Unarchive",
   "viewArchived": "View Archived",
   "viewActive": "View Active",
+  "autocountCustomer": "AutoCount Customer Code",
+  "autocountDocuments": "AutoCount Documents",
+  "autocountDocType": {
+    "invoice": "Invoice",
+    "quotation": "Quotation"
+  },
+  "outstanding": "Outstanding",
+  "dueDate": "Due Date",
+  "validity": "Validity",
+  "lineItem": {
+    "description": "Description",
+    "qty": "Qty",
+    "unitPrice": "Unit Price",
+    "subTotal": "Sub Total"
+  },
+  "syncNow": "Sync Now",
+  "syncing": "Syncing...",
+  "syncResult": "Sync complete: {{invoices}} invoices, {{quotations}} quotations, {{unmatched}} unmatched",
+  "syncFailed": "Sync failed, check AutoCount configuration",
   "industries": {
     "科技/IT": "Tech/IT",
     "金融/保险": "Finance/Insurance",

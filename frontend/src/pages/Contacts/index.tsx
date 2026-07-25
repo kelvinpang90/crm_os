@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { contactsApi, type ContactListParams } from '@/services/contacts';
+import { autocountApi } from '@/services/autocount';
 import { useIsMobile } from '@/hooks/useBreakpoint';
 import { useAuthStore } from '@/store/authStore';
 import { formatMYR } from '@/utils/currency';
@@ -32,6 +33,8 @@ export default function ContactsPage() {
   const [selected, setSelected] = useState<Contact | null>(null);
   const [editing, setEditing] = useState<Contact | null>(null);
   const [deleting, setDeleting] = useState<Contact | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -86,6 +89,24 @@ export default function ContactsPage() {
     setParams((p) => ({ ...p, sort_by: field, order: nextOrder, page: 1 }));
   };
 
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncMessage(null);
+    try {
+      const res = await autocountApi.syncNow();
+      const r = res.data.data;
+      setSyncMessage(t('syncResult', {
+        invoices: r.invoices_synced,
+        quotations: r.quotations_synced,
+        unmatched: r.invoices_unmatched + r.quotations_unmatched,
+      }));
+      load();
+    } catch {
+      setSyncMessage(t('syncFailed'));
+    }
+    setSyncing(false);
+  };
+
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field) return <span className="text-text-muted/40 ml-1">↕</span>;
     return <span className="text-primary ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>;
@@ -110,10 +131,21 @@ export default function ContactsPage() {
             </button>
           )}
         </div>
-        <button onClick={() => navigate('/contacts/new')} className="btn-primary text-sm">
-          + {t('newContact')}
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={handleSync} disabled={syncing} className="btn-secondary text-sm">
+            {syncing ? t('syncing') : t('syncNow')}
+          </button>
+          <button onClick={() => navigate('/contacts/new')} className="btn-primary text-sm">
+            + {t('newContact')}
+          </button>
+        </div>
       </div>
+
+      {syncMessage && (
+        <div className="mb-4 text-xs px-3 py-2 rounded-lg bg-dark-hover text-text-secondary">
+          {syncMessage}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2 mb-4">

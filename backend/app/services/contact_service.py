@@ -135,6 +135,7 @@ async def create_contact(
         notes=data.get("notes"),
         assigned_to=data.get("assigned_to"),
         tags=data.get("tags"),
+        autocount_customer_code=data.get("autocount_customer_code"),
     )
     db.add(contact)
     await db.flush()
@@ -181,7 +182,7 @@ async def update_contact(
         await _validate_assigned_user(db, data["assigned_to"])
 
     allowed_fields = {"name", "company", "industry", "email", "phone", "address", "notes",
-                      "assigned_to", "tags", "last_contact", "is_archived"}
+                      "assigned_to", "tags", "last_contact", "is_archived", "autocount_customer_code"}
     for key, value in data.items():
         if key in allowed_fields and value is not None and hasattr(contact, key):
             setattr(contact, key, value)
@@ -405,6 +406,7 @@ def _contact_to_dict(contact: Contact) -> dict:
         "last_contact": contact.last_contact.isoformat() if contact.last_contact else None,
         "tags": contact.tags,
         "is_archived": contact.is_archived,
+        "autocount_customer_code": contact.autocount_customer_code,
         "total_deal_amount": 0.0,
         "deal_count": 0,
         "created_at": contact.created_at.isoformat() if contact.created_at else None,

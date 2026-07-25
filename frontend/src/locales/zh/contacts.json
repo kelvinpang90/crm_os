@@ -38,6 +38,25 @@
   "unarchive": "取消归档",
   "viewArchived": "查看已归档",
   "viewActive": "查看活跃客户",
+  "autocountCustomer": "AutoCount 客户编号",
+  "autocountDocuments": "AutoCount 单据",
+  "autocountDocType": {
+    "invoice": "发票",
+    "quotation": "报价单"
+  },
+  "outstanding": "未付",
+  "dueDate": "到期日",
+  "validity": "有效期",
+  "lineItem": {
+    "description": "描述",
+    "qty": "数量",
+    "unitPrice": "单价",
+    "subTotal": "小计"
+  },
+  "syncNow": "立即同步",
+  "syncing": "同步中...",
+  "syncResult": "同步完成：发票 {{invoices}} 条，报价单 {{quotations}} 条，未匹配到客户 {{unmatched}} 条",
+  "syncFailed": "同步失败，请检查 AutoCount 配置",
   "industries": {
     "科技/IT": "科技/IT",
     "金融/保险": "金融/保险",

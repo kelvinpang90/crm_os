@@ -42,6 +42,13 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_from: str = ""
 
+    # AutoCount Cloud Accounting integration
+    autocount_api_base_url: str = "https://accounting-api.autocountcloud.com"
+    autocount_account_book_id: str = ""
+    autocount_key_id: str = ""
+    autocount_api_key: str = ""
+    autocount_poll_interval_seconds: int = 60
+
     @property
     def database_url(self) -> str:
         return (

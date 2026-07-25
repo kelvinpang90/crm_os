@@ -13,6 +13,7 @@ class ContactCreate(BaseModel):
     notes: Optional[str] = None
     assigned_to: Optional[str] = None
     tags: Optional[List[str]] = None
+    autocount_customer_code: Optional[str] = None
     # Initial deal fields (used to populate the auto-created Deal)
     initial_status: str = "lead"
     initial_priority: str = "mid"
@@ -38,6 +39,7 @@ class ContactUpdate(BaseModel):
     assigned_to: Optional[str] = None
     tags: Optional[List[str]] = None
     is_archived: Optional[int] = None
+    autocount_customer_code: Optional[str] = None
 
     @field_validator("is_archived")
     @classmethod
@@ -61,6 +63,7 @@ class ContactResponse(BaseModel):
     last_contact: Optional[date] = None
     tags: Optional[List[str]] = None
     is_archived: int = 0
+    autocount_customer_code: Optional[str] = None
     total_deal_amount: float = 0.0
     deal_count: int = 0
     created_at: datetime

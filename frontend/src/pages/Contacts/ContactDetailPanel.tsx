@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useIsMobile } from '@/hooks/useBreakpoint';
 import Badge from '@/components/common/Badge';
+import Modal from '@/components/common/Modal';
 import ActivityTimeline from './ActivityTimeline';
 import { useAuthStore } from '@/store/authStore';
 import { dealsApi } from '@/services/deals';
+import { autocountApi } from '@/services/autocount';
 import { formatMYR } from '@/utils/currency';
-import type { Contact, Deal } from '@/types';
+import type { Contact, Deal, AutocountDocument } from '@/types';
 import clsx from 'clsx';
 
 const STATUSES = ['lead', 'following', 'negotiating', 'won', 'lost'];
@@ -29,6 +31,9 @@ export default function ContactDetailPanel({ contact, onClose, onEdit, onDelete,
 
   const [deals, setDeals] = useState<Deal[]>([]);
   const [dealsLoading, setDealsLoading] = useState(true);
+  const [autocountDocs, setAutocountDocs] = useState<AutocountDocument[]>([]);
+  const [autocountLoading, setAutocountLoading] = useState(true);
+  const [selectedDoc, setSelectedDoc] = useState<AutocountDocument | null>(null);
   const [showNewDeal, setShowNewDeal] = useState(false);
   const [newDeal, setNewDeal] = useState({ title: '', status: 'lead', priority: 'mid', amount: '0' });
   const [savingDeal, setSavingDeal] = useState(false);
@@ -42,7 +47,16 @@ export default function ContactDetailPanel({ contact, onClose, onEdit, onDelete,
     setDealsLoading(false);
   };
 
-  useEffect(() => { loadDeals(); }, [contact.id]);
+  const loadAutocountDocs = async () => {
+    setAutocountLoading(true);
+    try {
+      const res = await autocountApi.getContactDocuments(contact.id);
+      setAutocountDocs(res.data.data ?? []);
+    } catch { /* ignore */ }
+    setAutocountLoading(false);
+  };
+
+  useEffect(() => { loadDeals(); loadAutocountDocs(); }, [contact.id]);
 
   const handleAddDeal = async () => {
     setSavingDeal(true);
@@ -109,6 +123,7 @@ export default function ContactDetailPanel({ contact, onClose, onEdit, onDelete,
             <InfoRow label={t('common:phone')} value={contact.phone} />
             <InfoRow label={t('common:address')} value={contact.address} />
             <InfoRow label={t('lastContact')} value={contact.last_contact} />
+            <InfoRow label={t('autocountCustomer')} value={contact.autocount_customer_code} />
           </div>
 
           {/* Tags */}
@@ -225,6 +240,53 @@ export default function ContactDetailPanel({ contact, onClose, onEdit, onDelete,
             )}
           </div>
 
+          {/* AutoCount Documents Section */}
+          <div className="border-t border-dark-border pt-4">
+            <p className="text-sm font-medium text-text-primary mb-3">
+              {t('autocountDocuments')} ({autocountDocs.length})
+            </p>
+            {autocountLoading ? (
+              <p className="text-xs text-text-muted py-2">{t('common:loading', 'Loading...')}</p>
+            ) : autocountDocs.length === 0 ? (
+              <p className="text-xs text-text-muted py-2">--</p>
+            ) : (
+              <div className="space-y-2">
+                {autocountDocs.map((doc) => (
+                  <button
+                    key={doc.id}
+                    type="button"
+                    onClick={() => setSelectedDoc(doc)}
+                    className="w-full flex items-center justify-between gap-2 p-2 rounded-lg bg-dark-bg border border-dark-border/50 text-left hover:border-primary/50 transition-colors"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-text-primary truncate">
+                        {t(`autocountDocType.${doc.doc_type}`)} · {doc.doc_no}
+                      </p>
+                      <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-dark-hover text-text-secondary">
+                          {doc.status || '-'}
+                        </span>
+                        <span className="text-xs text-text-secondary ml-1">
+                          {doc.currency_code} {doc.total_amount.toFixed(2)}
+                        </span>
+                        {doc.doc_type === 'invoice' && doc.outstanding_amount != null && doc.outstanding_amount > 0 && (
+                          <span className="text-xs text-amber-400">
+                            {t('outstanding')}: {doc.currency_code} {doc.outstanding_amount.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <svg className="w-3.5 h-3.5 text-text-muted shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <AutocountDocumentModal doc={selectedDoc} onClose={() => setSelectedDoc(null)} />
+
           {/* Activity Timeline */}
           <div className="border-t border-dark-border pt-4">
             <ActivityTimeline contactId={contact.id} deals={deals} />
@@ -241,5 +303,65 @@ function InfoRow({ label, value }: { label: string; value?: string | null }) {
       <span className="text-text-muted">{label}</span>
       <span className="text-text-secondary">{value || '-'}</span>
     </div>
+  );
+}
+
+function AutocountDocumentModal({ doc, onClose }: { doc: AutocountDocument | null; onClose: () => void }) {
+  const { t } = useTranslation('contacts');
+
+  return (
+    <Modal
+      open={!!doc}
+      onClose={onClose}
+      title={doc ? `${t(`autocountDocType.${doc.doc_type}`)} · ${doc.doc_no}` : undefined}
+    >
+      {doc && (
+        <div className="space-y-3 text-sm">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="px-2 py-0.5 rounded-full text-xs bg-dark-hover text-text-secondary">
+              {doc.status || '-'}
+            </span>
+            <span className="text-text-secondary">{doc.currency_code} {doc.total_amount.toFixed(2)}</span>
+          </div>
+
+          {doc.doc_type === 'invoice' && (
+            <>
+              {doc.outstanding_amount != null && doc.outstanding_amount > 0 && (
+                <InfoRow label={t('outstanding')} value={`${doc.currency_code} ${doc.outstanding_amount.toFixed(2)}`} />
+              )}
+              <InfoRow label={t('dueDate')} value={doc.due_date} />
+            </>
+          )}
+          {doc.doc_type === 'quotation' && (
+            <InfoRow label={t('validity')} value={doc.validity} />
+          )}
+
+          {doc.line_items.length === 0 ? (
+            <p className="text-xs text-text-muted">--</p>
+          ) : (
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-text-muted">
+                  <th className="text-left font-medium pb-1">{t('lineItem.description')}</th>
+                  <th className="text-right font-medium pb-1">{t('lineItem.qty')}</th>
+                  <th className="text-right font-medium pb-1">{t('lineItem.unitPrice')}</th>
+                  <th className="text-right font-medium pb-1">{t('lineItem.subTotal')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {doc.line_items.map((item, idx) => (
+                  <tr key={idx} className="text-text-secondary">
+                    <td className="py-1">{item.description || item.product_code || '-'}</td>
+                    <td className="py-1 text-right">{item.qty ?? '-'} {item.unit || ''}</td>
+                    <td className="py-1 text-right">{item.unit_price?.toFixed(2) ?? '-'}</td>
+                    <td className="py-1 text-right">{item.sub_total?.toFixed(2) ?? '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+    </Modal>
   );
 }
