@@ -23,6 +23,11 @@ logger = logging.getLogger(__name__)
 
 GRAPH_API = "https://graph.facebook.com/v18.0"
 
+# Fixed reply sent for messages that come in through the shared WhatsApp demo
+# gateway — the CRM demo's value is "message lands in the CRM backend, a human
+# replies from there", not an instant AI response.
+DEMO_CONFIRMATION_TEXT = "您的留言已收到，我们的顾问会尽快通过此对话回复您。"
+
 _signature_skip_warned = False
 
 
@@ -128,12 +133,12 @@ def _extract_body(msg: dict) -> str:
     return f"[unsupported: {mtype}]"
 
 
-async def _handle_message(db: AsyncSession, msg: dict) -> None:
+async def _handle_message(db: AsyncSession, msg: dict, is_demo: bool = False) -> Optional[Message]:
     phone = msg.get("from", "")
     external_id = msg.get("id")
     if not phone or not external_id:
         logger.warning("WhatsApp inbound missing from/id: %s", msg)
-        return
+        return None
 
     body = _extract_body(msg)
 
@@ -142,7 +147,7 @@ async def _handle_message(db: AsyncSession, msg: dict) -> None:
         select(Message).where(Message.external_id == external_id)
     )
     if existing.scalar_one_or_none():
-        return
+        return None
 
     # Find or create contact
     result = await db.execute(
@@ -158,6 +163,7 @@ async def _handle_message(db: AsyncSession, msg: dict) -> None:
             id=str(uuid.uuid4()),
             name=phone,
             phone=phone,
+            is_demo=is_demo,
         )
         db.add(contact)
         await db.flush()
@@ -189,6 +195,7 @@ async def _handle_message(db: AsyncSession, msg: dict) -> None:
     )
     db.add(message)
     await db.commit()
+    return message
 
 
 def _handle_status(status: dict) -> None:
@@ -209,6 +216,31 @@ def _handle_status(status: dict) -> None:
         )
 
 
+def build_text_message(to: str, text: str) -> dict:
+    """Build a Meta Graph API text-message send payload."""
+    return {
+        "messaging_product": "whatsapp",
+        "to": to,
+        "type": "text",
+        "text": {"body": text},
+    }
+
+
+async def handle_demo_inbound(db: AsyncSession, msg: dict) -> list[dict]:
+    """Handle a message forwarded by whatsapp_gateway for the CRM demo.
+
+    Reuses the normal dedup/contact/deal/message pipeline (marking the
+    contact as `is_demo`), then replies with a fixed confirmation — the demo
+    shows "message lands in the CRM backend", not an AI auto-reply. Returns
+    no messages for a duplicate delivery so the gateway doesn't resend the
+    confirmation on retry.
+    """
+    message = await _handle_message(db, msg, is_demo=True)
+    if message is None:
+        return []
+    return [build_text_message(message.sender_id, DEMO_CONFIRMATION_TEXT)]
+
+
 async def send_message(db: AsyncSession, contact_id: str, text: str) -> dict:
     """Send a WhatsApp message to a contact.
 
@@ -224,41 +256,60 @@ async def send_message(db: AsyncSession, contact_id: str, text: str) -> dict:
         raise WhatsAppSendError("no_phone", "Contact not found or has no phone number")
 
     external_id = None
-    creds_configured = bool(
-        settings.whatsapp_access_token and settings.whatsapp_phone_number_id
-    )
 
-    if creds_configured:
+    if contact.is_demo:
+        # Demo contacts came in through the shared whatsapp_gateway, which is
+        # the only thing holding that number's Graph API credentials — route
+        # the reply through the gateway's outbound endpoint instead.
         try:
             async with httpx.AsyncClient() as client:
                 resp = await client.post(
-                    f"{GRAPH_API}/{settings.whatsapp_phone_number_id}/messages",
-                    headers={"Authorization": f"Bearer {settings.whatsapp_access_token}"},
-                    json={
-                        "messaging_product": "whatsapp",
-                        "to": contact.phone,
-                        "type": "text",
-                        "text": {"body": text},
-                    },
+                    f"{settings.whatsapp_gateway_base_url}/internal/whatsapp/outbound",
+                    headers={"X-Internal-Secret": settings.internal_shared_secret},
+                    json={"to": contact.phone, "text": text},
                     timeout=10,
                 )
         except httpx.HTTPError as exc:
-            logger.exception("WhatsApp send transport error")
+            logger.exception("WhatsApp gateway send transport error")
             raise WhatsAppSendError("api_error", str(exc)) from exc
 
         if resp.status_code != 200:
             logger.error(
-                "WhatsApp send failed status=%s body=%s",
+                "WhatsApp gateway send failed status=%s body=%s",
                 resp.status_code, resp.text,
             )
             raise WhatsAppSendError("api_error", f"HTTP {resp.status_code}: {resp.text}")
-
-        data = resp.json()
-        external_id = data.get("messages", [{}])[0].get("id")
     else:
-        logger.warning(
-            "WhatsApp credentials not configured — persisting outbound message without dispatch"
+        creds_configured = bool(
+            settings.whatsapp_access_token and settings.whatsapp_phone_number_id
         )
+
+        if creds_configured:
+            try:
+                async with httpx.AsyncClient() as client:
+                    resp = await client.post(
+                        f"{GRAPH_API}/{settings.whatsapp_phone_number_id}/messages",
+                        headers={"Authorization": f"Bearer {settings.whatsapp_access_token}"},
+                        json=build_text_message(contact.phone, text),
+                        timeout=10,
+                    )
+            except httpx.HTTPError as exc:
+                logger.exception("WhatsApp send transport error")
+                raise WhatsAppSendError("api_error", str(exc)) from exc
+
+            if resp.status_code != 200:
+                logger.error(
+                    "WhatsApp send failed status=%s body=%s",
+                    resp.status_code, resp.text,
+                )
+                raise WhatsAppSendError("api_error", f"HTTP {resp.status_code}: {resp.text}")
+
+            data = resp.json()
+            external_id = data.get("messages", [{}])[0].get("id")
+        else:
+            logger.warning(
+                "WhatsApp credentials not configured — persisting outbound message without dispatch"
+            )
 
     msg = Message(
         id=str(uuid.uuid4()),

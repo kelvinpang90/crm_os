@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import engine
 from app.middleware.logging import AccessLogMiddleware
-from app.routers import auth, contacts, dashboard, users, tasks, pipeline, routing, webhooks, messages, analytics, sales_targets, deals, projects, autocount
+from app.routers import auth, contacts, dashboard, users, tasks, pipeline, routing, webhooks, messages, analytics, sales_targets, deals, projects, autocount, internal_whatsapp
 
 
 @asynccontextmanager
@@ -56,6 +56,8 @@ app.include_router(sales_targets.router, prefix="/api/sales-targets", tags=["sal
 app.include_router(deals.router, prefix="/api/deals", tags=["deals"])
 app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
 app.include_router(autocount.router, prefix="/api/autocount", tags=["autocount"])
+# No /api prefix: path must match whatsapp_gateway's demos_registry internal_base_url exactly.
+app.include_router(internal_whatsapp.router, prefix="/internal/whatsapp", tags=["internal"])
 
 
 @app.get("/api/health")

@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     autocount_api_key: str = ""
     autocount_poll_interval_seconds: int = 60
 
+    # Shared WhatsApp demo gateway (whatsapp_gateway)
+    internal_shared_secret: str = ""
+    whatsapp_gateway_base_url: str = ""
+
     @property
     def database_url(self) -> str:
         return (
