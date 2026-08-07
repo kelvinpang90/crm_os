@@ -50,7 +50,7 @@ async def test_valid_message_creates_demo_contact(client, async_session_maker):
         contact = (
             await session.execute(select(Contact).where(Contact.phone == "60123456789"))
         ).scalar_one()
-        assert contact.is_demo is True
+        assert contact.is_gateway is True
 
         deal = (
             await session.execute(select(Deal).where(Deal.contact_id == contact.id))

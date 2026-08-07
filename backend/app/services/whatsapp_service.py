@@ -133,7 +133,7 @@ def _extract_body(msg: dict) -> str:
     return f"[unsupported: {mtype}]"
 
 
-async def _handle_message(db: AsyncSession, msg: dict, is_demo: bool = False) -> Optional[Message]:
+async def _handle_message(db: AsyncSession, msg: dict, is_gateway: bool = False) -> Optional[Message]:
     phone = msg.get("from", "")
     external_id = msg.get("id")
     if not phone or not external_id:
@@ -163,7 +163,7 @@ async def _handle_message(db: AsyncSession, msg: dict, is_demo: bool = False) ->
             id=str(uuid.uuid4()),
             name=phone,
             phone=phone,
-            is_demo=is_demo,
+            is_gateway=is_gateway,
         )
         db.add(contact)
         await db.flush()
@@ -230,12 +230,12 @@ async def handle_demo_inbound(db: AsyncSession, msg: dict) -> list[dict]:
     """Handle a message forwarded by whatsapp_gateway for the CRM demo.
 
     Reuses the normal dedup/contact/deal/message pipeline (marking the
-    contact as `is_demo`), then replies with a fixed confirmation — the demo
+    contact as `is_gateway`), then replies with a fixed confirmation — the demo
     shows "message lands in the CRM backend", not an AI auto-reply. Returns
     no messages for a duplicate delivery so the gateway doesn't resend the
     confirmation on retry.
     """
-    message = await _handle_message(db, msg, is_demo=True)
+    message = await _handle_message(db, msg, is_gateway=True)
     if message is None:
         return []
     return [build_text_message(message.sender_id, DEMO_CONFIRMATION_TEXT)]
@@ -257,7 +257,7 @@ async def send_message(db: AsyncSession, contact_id: str, text: str) -> dict:
 
     external_id = None
 
-    if contact.is_demo:
+    if contact.is_gateway:
         # Demo contacts came in through the shared whatsapp_gateway, which is
         # the only thing holding that number's Graph API credentials — route
         # the reply through the gateway's outbound endpoint instead.

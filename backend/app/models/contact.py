@@ -32,7 +32,7 @@ class Contact(Base):
     autocount_customer_code: Mapped[str | None] = mapped_column(String(12), nullable=True)
     # True for contacts that came in through the shared WhatsApp demo gateway
     # (whatsapp_gateway) rather than this project's own WhatsApp number.
-    is_demo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_gateway: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.utcnow
@@ -47,5 +47,5 @@ class Contact(Base):
         Index("idx_deleted_at", "deleted_at"),
         Index("idx_is_archived", "is_archived"),
         Index("idx_autocount_customer_code", "autocount_customer_code"),
-        Index("idx_contacts_is_demo", "is_demo"),
+        Index("idx_contacts_is_gateway", "is_gateway"),
     )

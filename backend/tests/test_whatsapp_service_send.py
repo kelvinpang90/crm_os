@@ -5,9 +5,9 @@ from app.models.contact import Contact
 from app.services import whatsapp_service
 
 
-async def _make_contact(session_maker, *, is_demo: bool) -> str:
+async def _make_contact(session_maker, *, is_gateway: bool) -> str:
     async with session_maker() as session:
-        contact = Contact(id="c1", name="Test", phone="60199999999", is_demo=is_demo)
+        contact = Contact(id="c1", name="Test", phone="60199999999", is_gateway=is_gateway)
         session.add(contact)
         await session.commit()
         return contact.id
@@ -17,7 +17,7 @@ async def test_send_message_demo_contact_uses_gateway(async_session_maker, monke
     monkeypatch.setattr(settings, "whatsapp_gateway_base_url", "http://gateway.internal")
     monkeypatch.setattr(settings, "internal_shared_secret", "shared-secret")
 
-    contact_id = await _make_contact(async_session_maker, is_demo=True)
+    contact_id = await _make_contact(async_session_maker, is_gateway=True)
 
     mock_response = AsyncMock()
     mock_response.status_code = 200
@@ -39,7 +39,7 @@ async def test_send_message_normal_contact_dev_mode(async_session_maker, monkeyp
     monkeypatch.setattr(settings, "whatsapp_access_token", "")
     monkeypatch.setattr(settings, "whatsapp_phone_number_id", "")
 
-    contact_id = await _make_contact(async_session_maker, is_demo=False)
+    contact_id = await _make_contact(async_session_maker, is_gateway=False)
 
     with patch("httpx.AsyncClient.post", new=AsyncMock()) as mock_post:
         async with async_session_maker() as session:
