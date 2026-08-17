@@ -181,6 +181,13 @@ async def _handle_message(db: AsyncSession, msg: dict, is_gateway: bool = False)
             assigned_to=contact.assigned_to,
         )
         db.add(deal)
+    elif is_gateway and not contact.is_gateway:
+        # Contact predates the gateway migration, or first arrived through the
+        # old direct webhook, so it is still flagged as a direct contact. Upgrade
+        # it — otherwise send_message() takes the direct-Graph branch and replies
+        # with this service's own credentials instead of going through the
+        # gateway, which is the intended sole holder of the shared number's creds.
+        contact.is_gateway = True
 
     message = Message(
         id=str(uuid.uuid4()),

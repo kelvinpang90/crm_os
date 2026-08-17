@@ -64,6 +64,38 @@ async def test_valid_message_creates_demo_contact(client, async_session_maker):
         assert message.body == "hi"
 
 
+async def test_existing_contact_upgraded_to_gateway(client, async_session_maker):
+    """A contact that predates the gateway migration must be re-flagged when a
+    message arrives through the gateway. Without this, send_message() takes the
+    direct-Graph branch and replies with this service's own credentials, which
+    breaks as soon as those credentials are centralised in the gateway."""
+    async with async_session_maker() as session:
+        session.add(
+            Contact(id="pre-gateway", name="Old", phone="60155555555", is_gateway=False)
+        )
+        await session.commit()
+
+    resp = await client.post(
+        "/internal/whatsapp/inbound",
+        json={
+            "message": {
+                "from": "60155555555",
+                "id": "wamid.UPGRADE1",
+                "type": "text",
+                "text": {"body": "hi"},
+            }
+        },
+        headers={"X-Internal-Secret": "test-secret"},
+    )
+    assert resp.status_code == 200
+
+    async with async_session_maker() as session:
+        contact = (
+            await session.execute(select(Contact).where(Contact.phone == "60155555555"))
+        ).scalar_one()
+        assert contact.is_gateway is True
+
+
 async def test_duplicate_message_no_confirmation(client):
     payload = {
         "message": {
