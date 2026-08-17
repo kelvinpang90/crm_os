@@ -9,6 +9,7 @@ from app.dependencies import get_current_user
 from app.models.user import User
 from app.models.deal import Deal
 from app.models.contact import Contact
+from app.utils.demo_scope import contact_not_demo
 from app.utils.response import ok
 
 router = APIRouter()
@@ -33,12 +34,13 @@ async def get_pipeline(
         team_ids.append(current_user.id)
         base_where.append(Deal.assigned_to.in_(team_ids))
 
-    # Exclude deals whose contact is archived or deleted
+    # Exclude deals whose contact is archived, deleted, or a gateway demo visitor
     base_where.append(
         Deal.contact_id.in_(
             select(Contact.id).where(
                 Contact.deleted_at.is_(None),
                 Contact.is_archived == 0,
+                contact_not_demo(),
             )
         )
     )

@@ -7,13 +7,20 @@ walk-in WhatsApp visitors (leads named after a phone number, worth RM 0).
 
 from sqlalchemy import select
 
+from app.main import app
+from app.dependencies import get_current_user
 from app.routers import analytics
 from app.models.contact import Contact
 from app.models.deal import Deal
 from app.models.message import Message
 from app.models.user import User
-from app.services import dashboard_service
+from app.services import contact_service, dashboard_service, deal_service
 from app.utils.demo_scope import message_not_demo
+
+_ADMIN = User(
+    id="u-admin", name="Admin", email="admin@example.com",
+    password_hash="x", role="admin",
+)
 
 
 async def _seed_real_and_demo(session_maker) -> None:
@@ -48,18 +55,59 @@ async def test_analytics_deal_scope_excludes_demo(async_session_maker):
     can't run here because its trend query uses MySQL-only `date_format`."""
     await _seed_real_and_demo(async_session_maker)
 
-    admin = User(
-        id="u-admin", name="Admin", email="admin@example.com",
-        password_hash="x", role="admin",
-    )
-
     async with async_session_maker() as session:
-        conditions = await analytics._get_scoped_deal_conditions(admin, session)
+        conditions = await analytics._get_scoped_deal_conditions(_ADMIN, session)
         deal_ids = (
             await session.execute(select(Deal.id).where(*conditions))
         ).scalars().all()
 
     assert deal_ids == ["d-real"]
+
+
+async def test_contact_list_excludes_demo(async_session_maker):
+    await _seed_real_and_demo(async_session_maker)
+
+    async with async_session_maker() as session:
+        result = await contact_service.list_contacts(session, _ADMIN)
+
+    assert result["total"] == 1
+    assert [c["id"] for c in result["data"]] == ["c-real"]
+
+
+async def test_deal_list_excludes_demo(async_session_maker):
+    await _seed_real_and_demo(async_session_maker)
+
+    async with async_session_maker() as session:
+        deals = await deal_service.list_deals(session, _ADMIN)
+
+    assert [d["id"] for d in deals] == ["d-real"]
+
+
+async def test_pipeline_excludes_demo(client, async_session_maker):
+    await _seed_real_and_demo(async_session_maker)
+
+    app.dependency_overrides[get_current_user] = lambda: _ADMIN
+    try:
+        resp = await client.get("/api/pipeline")
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+    assert resp.status_code == 200
+    lead_stage = next(s for s in resp.json()["data"]["stages"] if s["status"] == "lead")
+    assert lead_stage["count"] == 1
+    assert [d["id"] for d in lead_stage["deals"]] == ["d-real"]
+
+
+async def test_demo_contact_still_reachable_by_id(async_session_maker):
+    """The carve-out: demo rows stay openable so an operator can work the
+    conversation the inbox handed them."""
+    await _seed_real_and_demo(async_session_maker)
+
+    async with async_session_maker() as session:
+        contact = await contact_service.get_contact(session, "c-demo")
+
+    assert contact is not None
+    assert contact["id"] == "c-demo"
 
 
 async def test_message_predicate_keeps_contactless_messages(async_session_maker):

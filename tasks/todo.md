@@ -46,18 +46,42 @@ SQLite 报 `OperationalError`。改成直接测 `_get_scoped_deal_conditions()` 
 那才是本次真正改动的地方。（`dashboard_service` 的 manager 看板同样用了 MySQL 专有的
 `func.datediff`，目前测试只覆盖 admin 看板。）
 
-### 阶段 B —— 业务列表（3 个文件）
+### 阶段 B —— 业务列表（3 个文件）✅ 2026-08-18 完成
 
-- [ ] `backend/app/services/contact_service.py` 的 `list_contacts()`
-- [ ] `backend/app/services/deal_service.py` 的 `list_deals()`
-- [ ] `backend/app/routers/pipeline.py`
+- [x] `backend/app/services/contact_service.py` 的 `list_contacts()` 加 `contact_not_demo()`
+      （列表、总数、排序共用同一个 `query`，一处即全覆盖；`_bulk_deal_summary()` 拿的是已过滤的
+      contact_ids，不用改）
+- [x] `backend/app/services/deal_service.py` 的 `list_deals()` 加 `deal_not_demo()`
+- [x] `backend/app/routers/pipeline.py`：该文件已有一个「排除已删除/已归档联系人」的子查询，
+      把 `contact_not_demo()` 加进那个子查询即可 —— 两个查询都用 `*base_where`，比再套一层
+      `deal_not_demo()` 子查询干净
 
-验收：断言 demo 联系人不出现在联系人列表和 pipeline，但 `get_contact(id)` 仍能查到
+验收：红绿对照通过 —— 未加过滤时 3 项断言失败（`assert 2 == 1`），加上后全套 **15 项通过**。
+其中 `test_demo_contact_still_reachable_by_id` 专门守住那个刻意保留的口子。
 
 ### 明确不动
 
 - `backend/app/routers/messages.py` —— 收件箱和单会话，保留 demo
 - `contact_service.get_contact()` —— 按 id 查单个，保留
+
+## ⚠️ 已知的遗留问题：`is_gateway` 语义重载（真实号码上线前必须解决）
+
+`Contact.is_gateway` 现在**同时表示两件事**：
+
+1. 「消息从共享网关进来的」—— 传输方式
+2. 「是 demo 访客」—— 业务性质
+
+今天这两者重合，因为只有测试号一个号码，所以本任务的过滤是正确的。
+
+**但按多号码架构，真实业务号也会走同一个网关**（见 `whatsapp_gateway/docs/multi-number-architecture.md`）。
+到那时真实客户也会带 `is_gateway=True`，本任务加的过滤会**把真实线索从联系人列表、
+商机列表、管道和看板里全部藏起来** —— 与「每个新进来的顾客指派给销售跟进」的需求完全相反。
+
+**解决方向**（属于网关设计文档的阶段 4）：网关在转发时带上消息落在哪个号码/哪条线上，
+crm_os 据此区分，而不是靠「是否经过网关」。届时把 `is_gateway` 拆成
+「传输来源」和「是否 demo」两个概念。
+
+2026-08-18 与用户确认：先按当前方案上线（方案 A），真实号码落地时一并处理。
 
 ## 可选项（本次不做，需要再说）
 

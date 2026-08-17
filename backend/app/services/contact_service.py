@@ -9,6 +9,7 @@ from app.models.contact import Contact
 from app.models.deal import Deal
 from app.models.user import User
 from app.services import routing_service
+from app.utils.demo_scope import contact_not_demo
 
 
 VALID_STATUSES = {"lead", "following", "negotiating", "won", "lost"}
@@ -27,7 +28,11 @@ async def list_contacts(
     order: str = "desc",
     is_archived: int = 0,
 ) -> dict:
-    query = select(Contact).where(Contact.deleted_at.is_(None), Contact.is_archived == is_archived)
+    query = select(Contact).where(
+        Contact.deleted_at.is_(None),
+        Contact.is_archived == is_archived,
+        contact_not_demo(),
+    )
 
     # Data permission
     if current_user.role == "sales":
