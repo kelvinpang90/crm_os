@@ -8,6 +8,7 @@ import hashlib
 import hmac
 import uuid
 import logging
+from datetime import datetime, timedelta
 from typing import Optional
 
 import httpx
@@ -27,6 +28,11 @@ GRAPH_API = "https://graph.facebook.com/v18.0"
 # gateway — the CRM demo's value is "message lands in the CRM backend, a human
 # replies from there", not an instant AI response.
 DEMO_CONFIRMATION_TEXT = "您的留言已收到，我们的顾问会尽快通过此对话回复您。"
+
+# The receipt above is sent once per conversation, not per message. Mirrors
+# WhatsApp's own 24h conversation window: a visitor coming back the next day
+# starts a new conversation and gets the receipt again.
+DEMO_CONFIRMATION_WINDOW_HOURS = 24
 
 _signature_skip_warned = False
 
@@ -233,17 +239,41 @@ def build_text_message(to: str, text: str) -> dict:
     }
 
 
+async def _is_new_demo_conversation(db: AsyncSession, message: Message) -> bool:
+    """True when `message` is the first inbound one of a conversation.
+
+    `message` itself is already persisted by the time this runs, so it is
+    excluded from the lookup.
+    """
+    since = datetime.utcnow() - timedelta(hours=DEMO_CONFIRMATION_WINDOW_HOURS)
+    prior = await db.execute(
+        select(Message.id)
+        .where(
+            Message.contact_id == message.contact_id,
+            Message.direction == "inbound",
+            Message.id != message.id,
+            Message.created_at >= since,
+        )
+        .limit(1)
+    )
+    return prior.scalar_one_or_none() is None
+
+
 async def handle_demo_inbound(db: AsyncSession, msg: dict) -> list[dict]:
     """Handle a message forwarded by whatsapp_gateway for the CRM demo.
 
     Reuses the normal dedup/contact/deal/message pipeline (marking the
     contact as `is_gateway`), then replies with a fixed confirmation — the demo
-    shows "message lands in the CRM backend", not an AI auto-reply. Returns
-    no messages for a duplicate delivery so the gateway doesn't resend the
-    confirmation on retry.
+    shows "message lands in the CRM backend", not an AI auto-reply.
+
+    The confirmation is a receipt, so it goes out once per conversation rather
+    than after every message. Returns no messages for a duplicate delivery so
+    the gateway doesn't resend it on retry.
     """
     message = await _handle_message(db, msg, is_gateway=True)
     if message is None:
+        return []
+    if not await _is_new_demo_conversation(db, message):
         return []
     return [build_text_message(message.sender_id, DEMO_CONFIRMATION_TEXT)]
 

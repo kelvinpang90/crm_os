@@ -96,6 +96,41 @@ async def test_existing_contact_upgraded_to_gateway(client, async_session_maker)
         assert contact.is_gateway is True
 
 
+async def test_confirmation_sent_once_per_conversation(client):
+    """The receipt is a conversation-level acknowledgement, not a per-message
+    auto-reply — a visitor sending several messages in a row must not get it
+    repeated after every one."""
+    headers = {"X-Internal-Secret": "test-secret"}
+
+    def _msg(external_id: str, body: str) -> dict:
+        return {
+            "message": {
+                "from": "60177777777",
+                "id": external_id,
+                "type": "text",
+                "text": {"body": body},
+            }
+        }
+
+    first = await client.post(
+        "/internal/whatsapp/inbound", json=_msg("wamid.CONV1", "hello"), headers=headers
+    )
+    assert first.status_code == 200
+    assert len(first.json()["messages"]) == 1
+
+    second = await client.post(
+        "/internal/whatsapp/inbound", json=_msg("wamid.CONV2", "anyone there?"), headers=headers
+    )
+    assert second.status_code == 200
+    assert second.json()["messages"] == []
+
+    third = await client.post(
+        "/internal/whatsapp/inbound", json=_msg("wamid.CONV3", "hi again"), headers=headers
+    )
+    assert third.status_code == 200
+    assert third.json()["messages"] == []
+
+
 async def test_duplicate_message_no_confirmation(client):
     payload = {
         "message": {
