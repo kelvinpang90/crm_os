@@ -1,4 +1,8 @@
-# 任务：把 demo 数据从真实业务视图里排除
+# crm_os 任务清单
+
+---
+
+# 任务一：把 demo 数据从真实业务视图里排除（✅ 已完成）
 
 > 提出时间：2026-08-18
 > 背景：`whatsapp_gateway` 的 CRM demo 上线后，每个来体验的访客都会在真实 CRM 里
@@ -93,4 +97,86 @@ crm_os 据此区分，而不是靠「是否经过网关」。届时把 `is_gatew
 
 ## 评审记录
 
-（实施后填写）
+- 2026-08-18：`dashboard_service.py` 里 24 处统计查询全部走 `_deal_alive()` / `_contact_alive()`
+  两个 helper，改 helper 即全覆盖三套看板和两个漏斗，不必逐个调用点改。同理 `analytics.py`
+  的所有 Deal 查询都由 `_get_scoped_deal_conditions()` 构造，`pipeline.py` 已有一个联系人子查询。
+  **动手前先找 choke point，比逐处加过滤省一个数量级的改动量，也不会漏。**
+- 2026-08-18：`Message.contact_id` 可空，`NULL NOT IN (...)` 在 SQL 里求值为 NULL 会把整行滤掉，
+  差点静默丢弃所有无联系人的邮件。可空外键上写 `notin_` 一律要配 `is_(None)` 分支。
+- 2026-08-18：analytics 端点无法在测试里跑（趋势查询用 MySQL 专有的 `func.date_format`，
+  SQLite 报 `OperationalError`），改成直接测被修改的 `_get_scoped_deal_conditions()`。
+  `dashboard_service` 的 manager 看板同样用了 `func.datediff`，目前测试只覆盖 admin 看板。
+
+---
+
+# 任务二：WhatsApp 多客服协作（规划中）
+
+> 提出时间：2026-08-18
+> 需求：「每个新进来的 CRM 顾客，指派给一个销售人员跟进」，一个 WhatsApp 号码多人共用。
+> 平台层面这是可行的 —— 号码接进 Cloud API 后就没有 WhatsApp App 那一层了，
+> 谁处理哪个会话完全由 CRM 决定。**注意：号码一旦注册到 Cloud API，
+> 就不能再在 WhatsApp Business App 里使用**，员工必须在 CRM 里工作。
+
+## 已经具备的能力（不用重做）
+
+| 能力 | 位置 |
+|------|------|
+| 新联系人自动分派，三种策略（工作量 / 区域 / 赢率）+ 可配规则优先级 | `routing_service.assign_contact()` |
+| 找不到匹配规则时兜底取第一个在职 sales | `routing_service.assign_contact()` 末尾 |
+| 收件箱按角色隔离：sales 只看自己、manager 看团队、admin 看全部 | `routers/messages.py:31-38` |
+| 从 CRM 后台回复并经网关发出 | 已于 2026-08-17 真机验证 |
+
+## 核实过的缺口（以下均已读代码确认，非推测）
+
+### 缺口 1 · 批量导入的联系人可能完全没有负责人 —— 严重度：高
+
+`import_contacts()` 的负责人取自 `assigned_to_email` 列；该列为空时，**只有当导入者本人是
+sales 角色**才回落到导入者自己。**管理员导入一批没有负责人列的线索 → 全部 `assigned_to = None`。**
+
+后果：这些线索在销售和主管的**联系人列表和收件箱里完全不可见**（两处都按 `assigned_to` 过滤），
+只有管理员看得到，且没有任何告警。而且 import 这条路径**根本不调用路由引擎**，
+与 WhatsApp / 邮件 / 手工创建三条入口的行为不一致。
+
+- [ ] 修复：`import_contacts()` 在没有显式负责人时调用 `routing_service.assign_contact()`
+
+### 缺口 2 · 转派后历史消息留在原负责人名下 —— 严重度：高
+
+`Message.assigned_to` 是消息创建时从 `contact.assigned_to` 拷贝的快照。
+`contact_service.update_contact()` 修改 `contact.assigned_to` 时**不会同步已有的 Message 行**。
+
+后果：把客户转给同事后，接手的人（sales 角色）在收件箱里**看不到任何历史消息**，
+原负责人反而还看得到。多客服场景下这条最致命 —— 转派等于丢上下文。
+
+- [ ] 修复：`update_contact()` 改动 `assigned_to` 时，同步更新该联系人名下的 Message
+- [ ] 或者改为收件箱不按 `Message.assigned_to` 过滤，而是 join 到 `Contact.assigned_to`
+      （去掉冗余字段，从根上消除不同步；需评估对邮件等无联系人消息的影响）
+
+### 缺口 3 · 没有会话级的转派与认领机制 —— 严重度：中
+
+只能通过改联系人的 `assigned_to` 来换人，没有会话级的转派或认领接口，
+也没有「他人正在处理」的标记 —— 两个销售可能同时回复同一个客户，
+而 WhatsApp 那一侧看不出是谁回的。
+
+- [ ] 设计：认领 / 转派接口 + 简单的并发保护（如回复前校验当前归属）
+- [ ] 可选：出站消息记录实际操作人，与「归属人」区分开
+
+### 缺口 4 · 悬空会话没有兜底 —— 严重度：低（但影响面大）
+
+因为 `assign_contact()` 有兜底逻辑，只要系统里有至少一个在职 sales，
+WhatsApp / 邮件 / 手工创建这三条路径几乎总能分到人。**（这一条我最初高估了严重度，
+实际核实后发现路由兜底覆盖了绝大多数情况，真正的悬空来源是上面的缺口 1。）**
+
+剩余风险：`assigned_to = None` 的联系人对 sales 和 manager 完全不可见且无告警。
+
+- [ ] 加一个「未分派」视图或告警，让悬空线索不至于无声无息
+
+## 建议顺序
+
+缺口 1 → 缺口 2 → 缺口 3。前两个是明确的 bug，各自独立、可单独验收；
+缺口 3 是新功能，需要先定交互再动手。缺口 4 可以并进缺口 1 一起做。
+
+## 实施前须知
+
+按项目规则，每个缺口**先写能重现的测试**，并在未修复的代码上确认它确实失败。
+本地无 Docker 且依赖钉死旧版本，测试在 VPS 上用 `ghcr.io/kelvinpang90/crm_os-backend:latest`
+镜像挂载临时副本跑（见任务一的做法）。
