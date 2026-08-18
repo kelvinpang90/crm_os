@@ -2,11 +2,12 @@ import uuid
 from datetime import datetime, date
 from typing import Optional
 
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.contact import Contact
 from app.models.deal import Deal
+from app.models.message import Message
 from app.models.user import User
 from app.services import routing_service
 from app.utils.demo_scope import contact_not_demo
@@ -186,12 +187,26 @@ async def update_contact(
     if "assigned_to" in data and data["assigned_to"]:
         await _validate_assigned_user(db, data["assigned_to"])
 
+    new_assignee = data.get("assigned_to")
+    reassigned = bool(new_assignee) and new_assignee != contact.assigned_to
+
     allowed_fields = {"name", "company", "industry", "email", "phone", "address", "notes",
                       "assigned_to", "tags", "last_contact", "is_archived", "autocount_customer_code"}
     for key, value in data.items():
         if key in allowed_fields and value is not None and hasattr(contact, key):
             setattr(contact, key, value)
     contact.updated_at = datetime.utcnow()
+
+    if reassigned:
+        # Message.assigned_to is a copy of the owner taken when the message was
+        # stored, and the inbox filters on it. Without this the new owner would
+        # inherit the customer but see none of the conversation, while the
+        # previous owner would still see all of it.
+        await db.execute(
+            update(Message)
+            .where(Message.contact_id == contact.id)
+            .values(assigned_to=new_assignee)
+        )
 
     await db.flush()
     return _contact_to_dict(contact)

@@ -180,3 +180,46 @@ WhatsApp / 邮件 / 手工创建这三条路径几乎总能分到人。**（这�
 按项目规则，每个缺口**先写能重现的测试**，并在未修复的代码上确认它确实失败。
 本地无 Docker 且依赖钉死旧版本，测试在 VPS 上用 `ghcr.io/kelvinpang90/crm_os-backend:latest`
 镜像挂载临时副本跑（见任务一的做法）。
+
+## 实施拆分（2026-08-18 用户确认三条需求后细化）
+
+用户明确的三条：
+1. 批量导入时询问是否自动指派负责人，且可选择指派逻辑
+2. 转派后历史消息要转给新负责人
+3. 销售发消息时，判断当前客户是否在该销售名下
+
+按「超 3 个文件先拆分」拆成四个子任务，按风险从低到高排：
+
+### 2.1 转派带走历史消息（需求 2）—— 1 个文件 ✅ 2026-08-18 完成
+
+- [x] `contact_service.update_contact()`：在 setattr 循环**之前**先算出 `reassigned`
+      （循环会把 `contact.assigned_to` 覆盖掉，之后就比不出变化了），
+      然后 `UPDATE messages SET assigned_to = ? WHERE contact_id = ?`
+- [x] 测试 `backend/tests/test_contact_reassign.py` 两项：转派后历史消息归属跟着变；
+      只改其他字段时不动消息（避免误伤）
+
+红绿对照：未修复时 `test_reassign_transfers_message_history` 失败，修复后全套 17 项通过。
+
+注意：**不动 Deal.assigned_to**。商机归属牵涉业绩归属和提成，不能顺手改，
+需要单独决策。
+
+### 2.2 发送前校验客户归属（需求 3）—— 1 个文件
+
+- [ ] `routers/messages.py` 的 `/whatsapp/send` 和 `/email/send`：
+      发送前校验当前用户是否有权处理该客户
+- [ ] 测试：越权发送被拒；有权发送正常
+
+现状：两个端点都注入了 `current_user` 但**完全没用来鉴权**，任何登录用户
+都能给任意客户发消息。
+
+### 2.3 导入自动指派 —— 后端（需求 1）—— 3 个文件
+
+- [ ] `routing_service.py`：暴露一个按指定策略分派的入口（现有 `assign_contact()`
+      走的是规则引擎，策略是规则里配的，不能由调用方指定）
+- [ ] `contact_service.import_contacts()`：新增 `auto_assign` / `assign_strategy` 参数
+- [ ] `routers/contacts.py` 的 `POST /import`：multipart 表单新增这两个字段
+
+### 2.4 导入自动指派 —— 前端（需求 1）—— 2 个文件
+
+- [ ] `frontend/src/pages/Contacts/ExcelImport.tsx`：加「自动指派负责人」开关 + 策略下拉
+- [ ] `frontend/src/services/contacts.ts`：`importContacts()` 带上新参数
