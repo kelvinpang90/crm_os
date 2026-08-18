@@ -16,6 +16,43 @@ from app.utils.response import ok, fail
 
 router = APIRouter()
 
+NOT_YOURS = (
+    "This customer is not assigned to you. Ask an administrator to send it, "
+    "or have the customer assigned to you first."
+)
+
+
+async def _may_message_contact(
+    db: AsyncSession, current_user: User, contact_id: str
+) -> bool:
+    """Whether `current_user` is allowed to send to this customer.
+
+    Admins are unrestricted; a manager needs the customer to sit with someone on
+    their team; a sales rep needs it to be their own. A customer with no owner
+    therefore reaches only admins — `None` is neither the rep's own id nor a
+    member of any team list — so an unowned customer has to be assigned to
+    somebody before a rep can write to them. A customer that does not exist is
+    refused the same way rather than confirming it is missing.
+    """
+    if current_user.role == "admin":
+        return True
+
+    owner = (
+        await db.execute(
+            select(Contact.assigned_to).where(
+                Contact.id == contact_id, Contact.deleted_at.is_(None)
+            )
+        )
+    ).scalar_one_or_none()
+    if owner is None:
+        return False
+
+    if current_user.role == "manager":
+        from app.services.dashboard_service import _get_team_ids
+        return owner in await _get_team_ids(db, current_user.id)
+
+    return owner == current_user.id
+
 
 @router.get("")
 async def list_messages(
@@ -107,6 +144,9 @@ async def send_whatsapp(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    if not await _may_message_contact(db, current_user, body.contact_id):
+        return fail(message=NOT_YOURS, code="NOT_ASSIGNED", status_code=403)
+
     try:
         data = await whatsapp_service.send_message(db, body.contact_id, body.message)
     except WhatsAppSendError as exc:
@@ -122,6 +162,9 @@ async def send_email(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    if not await _may_message_contact(db, current_user, body.contact_id):
+        return fail(message=NOT_YOURS, code="NOT_ASSIGNED", status_code=403)
+
     data = await email_service.send_email(db, body.contact_id, body.subject, body.body)
     if not data:
         return fail(message="Contact not found or has no email", code=400)
