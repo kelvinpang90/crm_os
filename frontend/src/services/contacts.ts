@@ -31,9 +31,16 @@ export const contactsApi = {
   archiveContact: (id: string, is_archived: boolean) =>
     api.patch<ApiResponse<Contact>>(`/contacts/${id}/archive`, { is_archived: is_archived ? 1 : 0 }),
 
-  importContacts: (file: File) => {
+  importContacts: (
+    file: File,
+    options?: { autoAssign?: boolean; assignStrategy?: string },
+  ) => {
     const formData = new FormData();
     formData.append('file', file);
+    if (options?.autoAssign) {
+      formData.append('auto_assign', 'true');
+      formData.append('assign_strategy', options.assignStrategy ?? 'rules');
+    }
     return api.post<ApiResponse<{
       total: number; inserted: number; updated: number; skipped: number;
       errors: Array<{ row: number; field: string; message: string }>;

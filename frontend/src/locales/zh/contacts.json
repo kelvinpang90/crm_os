@@ -76,5 +76,12 @@
     "WhatsApp": "WhatsApp",
     "other": "其他",
     "status change": "状态变更"
-  }
+  },
+  "importAutoAssign": "自动指派负责人",
+  "importAutoAssignHint": "仅对表格里未填负责人的行生效。",
+  "importAssignStrategy": "指派逻辑",
+  "importStrategyRules": "按现有路由规则",
+  "importStrategyWorkload": "平均工作量",
+  "importStrategyWinRate": "赢率优先",
+  "importStrategyMe": "全部指派给我"
 }

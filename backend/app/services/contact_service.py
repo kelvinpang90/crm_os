@@ -243,7 +243,13 @@ async def soft_delete_contact(db: AsyncSession, contact_id: str) -> bool:
     return True
 
 
-async def import_contacts(db: AsyncSession, rows: list[dict], current_user: User) -> dict:
+async def import_contacts(
+    db: AsyncSession,
+    rows: list[dict],
+    current_user: User,
+    auto_assign: bool = False,
+    assign_strategy: str = "rules",
+) -> dict:
     """Import contacts from parsed Excel rows.
 
     Row with customer_id: only add a new Deal to the existing Contact.
@@ -357,6 +363,19 @@ async def import_contacts(db: AsyncSession, rows: list[dict], current_user: User
                 tags=tags,
                 assigned_to=final_assigned,
             )
+            # Rows carrying no owner of their own: without this, an import run by
+            # an admin leaves every contact ownerless, and an ownerless contact is
+            # invisible to sales and managers in both the list and the inbox.
+            # Resolved before the flush so the deal below inherits the same owner.
+            if auto_assign and not final_assigned:
+                if assign_strategy == "me":
+                    final_assigned = current_user.id
+                else:
+                    final_assigned = await routing_service.assign_by_strategy(
+                        db, contact, assign_strategy
+                    )
+                contact.assigned_to = final_assigned
+
             db.add(contact)
             await db.flush()
 

@@ -76,5 +76,12 @@
     "WhatsApp": "WhatsApp",
     "other": "Other",
     "status change": "Status Change"
-  }
+  },
+  "importAutoAssign": "Auto-assign an owner",
+  "importAutoAssignHint": "Only applies to rows that leave the owner column blank.",
+  "importAssignStrategy": "Assignment logic",
+  "importStrategyRules": "Use the configured routing rules",
+  "importStrategyWorkload": "Balance workload",
+  "importStrategyWinRate": "Highest win rate",
+  "importStrategyMe": "Assign them all to me"
 }

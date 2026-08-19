@@ -220,14 +220,34 @@ WhatsApp / 邮件 / 手工创建这三条路径几乎总能分到人。**（这�
 红绿对照：部署版本上越权发送返回 **200 且消息真的发出去了**（mock 被调用），
 加守卫后返回 403 且下游未被调用，全套 27 项通过。
 
-### 2.3 导入自动指派 —— 后端（需求 1）—— 3 个文件
+### 2.3 导入自动指派 —— 后端（需求 1）—— 3 个文件 ✅ 2026-08-18 完成
 
-- [ ] `routing_service.py`：暴露一个按指定策略分派的入口（现有 `assign_contact()`
-      走的是规则引擎，策略是规则里配的，不能由调用方指定）
-- [ ] `contact_service.import_contacts()`：新增 `auto_assign` / `assign_strategy` 参数
-- [ ] `routers/contacts.py` 的 `POST /import`：multipart 表单新增这两个字段
+- [x] `routing_service.py`：新增 `ASSIGN_STRATEGIES` 和 `assign_by_strategy()`。
+      与 `assign_contact()` 的区别：后者跟随配置好的路由规则（策略写在规则里、
+      候选人取规则的 target_users），前者由调用方指定策略、候选人是全部在职销售
+- [x] `contact_service.import_contacts()`：新增 `auto_assign` / `assign_strategy` 参数。
+      **在 `db.add(contact)` 之前解析归属**，这样后面创建的 Deal 能继承同一个负责人 ——
+      Deal 用的是 `final_assigned` 变量，晚于 flush 再赋值就会留下 None
+- [x] `routers/contacts.py`：multipart 表单加 `auto_assign` / `assign_strategy`，
+      并校验策略取值（未知值返回 400）
 
-### 2.4 导入自动指派 —— 前端（需求 1）—— 2 个文件
+`"me"` 由 service 层解析（只有它知道 `current_user`），其余三个走 routing_service。
+`"region"` 不单独暴露 —— 它依赖路由规则里的 keyword conditions，脱离规则没有意义，
+只能通过 `"rules"` 间接生效。
 
-- [ ] `frontend/src/pages/Contacts/ExcelImport.tsx`：加「自动指派负责人」开关 + 策略下拉
-- [ ] `frontend/src/services/contacts.ts`：`importContacts()` 带上新参数
+红绿对照：新增 `backend/tests/test_import_assign.py` 8 项（含 3 个策略的参数化），
+未实现时 7 项失败，实现后全套 **35 项通过**。测试覆盖了几个容易写错的边界：
+显式填了负责人的行不被覆盖（auto_assign 是兜底不是强制）、Deal 继承解析后的负责人、
+系统里一个在职销售都没有时不报错只是留空。
+
+### 2.4 导入自动指派 —— 前端（需求 1）—— 4 个文件 ✅ 2026-08-18 完成
+
+- [x] `frontend/src/services/contacts.ts`：`importContacts(file, options?)` 带上表单字段
+- [x] `frontend/src/pages/Contacts/ExcelImport.tsx`：勾选框 + 策略下拉（勾上才显示）
+- [x] `frontend/src/locales/{en,zh}/contacts.json`：新增 7 个文案 key
+
+比计划多了两个文件（i18n）。原打算沿用文件里已有的硬编码中文，但既然 contacts 命名空间
+是现成的，加 key 更正规。注意 **`autoAssign` 这个 key 已被占用** —— 是 `ContactForm.tsx`
+里「系统自动分配」下拉选项用的，含义不同，所以新 key 统一加 `import` 前缀。
+
+验证：`npx tsc -b` 通过（exit 0）。

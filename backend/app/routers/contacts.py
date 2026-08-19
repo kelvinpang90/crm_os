@@ -1,7 +1,7 @@
 from typing import Annotated, Optional
 from io import BytesIO
 
-from fastapi import APIRouter, Depends, Query, UploadFile, File
+from fastapi import APIRouter, Depends, Form, Query, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from openpyxl import Workbook, load_workbook
@@ -11,7 +11,7 @@ from app.dependencies import get_current_user, require_role
 from app.models.user import User
 from app.schemas.contact import ContactCreate, ContactUpdate, ArchiveRequest
 from app.schemas.activity import ActivityCreate
-from app.services import contact_service, activity_service, autocount_service
+from app.services import contact_service, activity_service, autocount_service, routing_service
 from app.utils.response import ok, fail
 
 router = APIRouter()
@@ -78,9 +78,15 @@ async def import_contacts(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
     file: UploadFile = File(...),
+    auto_assign: bool = Form(False),
+    assign_strategy: str = Form("rules"),
 ):
     if not file.filename or not file.filename.endswith((".xlsx", ".xls")):
         return fail("Only .xlsx or .xls files are supported", status_code=400)
+
+    # "me" is resolved by the service from current_user; the rest are routing strategies.
+    if assign_strategy not in (*routing_service.ASSIGN_STRATEGIES, "me"):
+        return fail(f"Unknown assign_strategy: {assign_strategy}", status_code=400)
 
     content = await file.read()
     if len(content) > 10 * 1024 * 1024:
@@ -121,7 +127,10 @@ async def import_contacts(
 
     wb.close()
 
-    result = await contact_service.import_contacts(db, parsed_rows, current_user)
+    result = await contact_service.import_contacts(
+        db, parsed_rows, current_user,
+        auto_assign=auto_assign, assign_strategy=assign_strategy,
+    )
     return ok(data=result)
 
 

@@ -15,6 +15,8 @@ export default function ExcelImport() {
   const [headers, setHeaders] = useState<string[]>([]);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [autoAssign, setAutoAssign] = useState(false);
+  const [assignStrategy, setAssignStrategy] = useState('rules');
 
   const handleDownloadTemplate = async () => {
     try {
@@ -56,7 +58,7 @@ export default function ExcelImport() {
     if (!file) return;
     setImporting(true);
     try {
-      const res = await contactsApi.importContacts(file);
+      const res = await contactsApi.importContacts(file, { autoAssign, assignStrategy });
       setResult(res.data.data);
     } catch { /* ignore */ }
     setImporting(false);
@@ -118,6 +120,35 @@ export default function ExcelImport() {
                 })}
               </tbody>
             </table>
+          </div>
+
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm text-text-secondary">
+              <input
+                type="checkbox"
+                checked={autoAssign}
+                onChange={(e) => setAutoAssign(e.target.checked)}
+              />
+              {t('importAutoAssign')}
+            </label>
+
+            {autoAssign && (
+              <div className="flex items-center gap-2 pl-6">
+                <span className="text-sm text-text-secondary">{t('importAssignStrategy')}</span>
+                <select
+                  value={assignStrategy}
+                  onChange={(e) => setAssignStrategy(e.target.value)}
+                  className="input text-sm"
+                >
+                  <option value="rules">{t('importStrategyRules')}</option>
+                  <option value="workload">{t('importStrategyWorkload')}</option>
+                  <option value="win_rate">{t('importStrategyWinRate')}</option>
+                  <option value="me">{t('importStrategyMe')}</option>
+                </select>
+              </div>
+            )}
+
+            <p className="pl-6 text-xs text-text-muted">{t('importAutoAssignHint')}</p>
           </div>
 
           <button onClick={handleImport} disabled={importing} className="btn-primary">

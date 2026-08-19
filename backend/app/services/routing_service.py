@@ -140,6 +140,44 @@ async def assign_contact(db: AsyncSession, contact: Contact) -> Optional[str]:
     return fallback.scalar_one_or_none()
 
 
+# Strategies a caller may name explicitly, e.g. the bulk importer. "rules" runs
+# the configured routing rules, which is what every other entry point does; the
+# rest bypass the rules and apply one strategy to every contact. "region" is
+# absent on purpose — it only means anything alongside a rule's keyword
+# conditions, so it is reachable through "rules" and not on its own.
+ASSIGN_STRATEGIES = ("rules", "workload", "win_rate")
+
+
+async def _active_sales_ids(db: AsyncSession) -> list[str]:
+    result = await db.execute(
+        select(User.id).where(User.is_active == True, User.role == "sales")
+    )
+    return [r for r in result.scalars().all()]
+
+
+async def assign_by_strategy(
+    db: AsyncSession, contact: Contact, strategy: str
+) -> Optional[str]:
+    """Pick an owner using a strategy the caller names.
+
+    Unlike `assign_contact()`, which follows the configured rules and their
+    target lists, this considers every active sales rep. Returns None for an
+    unknown strategy or when there is nobody to assign to.
+    """
+    if strategy == "rules":
+        return await assign_contact(db, contact)
+
+    eligible = await _active_sales_ids(db)
+    if not eligible:
+        return None
+
+    if strategy == "workload":
+        return await _strategy_workload(db, eligible)
+    if strategy == "win_rate":
+        return await _strategy_win_rate(db, eligible)
+    return None
+
+
 async def _strategy_workload(db: AsyncSession, eligible: list[str]) -> Optional[str]:
     """Assign to sales with fewest active contacts."""
     result = await db.execute(
