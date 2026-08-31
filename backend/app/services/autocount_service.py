@@ -57,7 +57,6 @@ async def _sync_customers(db: AsyncSession) -> int:
     # activeOnly=True: a customer AutoCount marks inactive is dropped from
     # the pull entirely — it won't create or update a Contact.
     debtors = await autocount_client.get_all_debtors(active_only=True)
-    now = datetime.utcnow()
 
     for d in debtors:
         # debtor/listing returns PascalCase keys — see autocount_client._DEBTOR_FIELDS.
@@ -82,7 +81,18 @@ async def _sync_customers(db: AsyncSession) -> int:
         contact.email = d.get("EmailAddress") or None
         contact.phone = d.get("Phone1") or None
         contact.address = d.get("Address") or None
-        contact.updated_at = now
+        # `updated_at` is deliberately not assigned. The column carries
+        # `onupdate`, so it moves by itself when one of the fields above actually
+        # changed -- and stays put when the pull brought back exactly what we
+        # already had. Assigning it here made every row dirty on every run, and
+        # the poller runs every 60s: 1440 full rewrites of the table a day with
+        # nothing to show for them.
+        #
+        # rs-roof-pms ran the same code against its own MySQL and filled a 29G
+        # disk with 13G of binlog on 2026-08-30 -- see that repo's
+        # docs/binlog-write-loop-investigation.md. This database is small enough
+        # that it only cost ~9M of binlog a day on the shared server, which is
+        # luck about data volume, not a difference in the code.
 
     await db.flush()
     return len(debtors)
@@ -95,7 +105,6 @@ async def _sync_documents(db: AsyncSession, doc_type: str) -> tuple[int, int]:
         raw_docs = await autocount_client.get_all_quotations()
 
     unmatched = 0
-    now = datetime.utcnow()
     for raw in raw_docs:
         master = raw.get("master") or {}
         customer_code = master.get("debtorCode", "")
@@ -127,7 +136,11 @@ async def _sync_documents(db: AsyncSession, doc_type: str) -> tuple[int, int]:
         else:
             doc.validity = master.get("validity") or None
         doc.line_items = _build_line_items(raw.get("details") or [])
-        doc.synced_at = now
+        # Not assigned, for the same reason as `contact.updated_at` above: the
+        # column carries `onupdate`. Stamping it made every row dirty every run,
+        # and documents are the expensive ones -- `line_items` is JSON, and a
+        # ROW-format binlog writes the whole row twice (before and after image)
+        # for an UPDATE that changed nothing but a timestamp.
 
     await db.flush()
     return len(raw_docs), unmatched
