@@ -726,6 +726,6 @@ proxy_pass http://$crm_frontend;
   不会让一个早已注释掉的站点改变行为。
 - 待 VPS 核实（可选）：`grep -n demo /srv/infra/nginx/conf.d/*.conf` 确认线上仍是注释状态；
   `docker logs infra_nginx --since 2026-10-09T00:00 | grep demo` 看有没有 444。
-- 遗留：Cloudflare 上 demo 的 DNS 记录仍是代理状态，所以访客看到的是 Cloudflare 520 错误页。要么删 DNS 记录，要么
-  给它一个「已下线」的静态页。另外 `E:\projects\CLAUDE.md` 的项目表和基础设施图仍把 demo_os 列为在线，需要更新。
-  这两件不在本任务范围内。
+- 2026-10-09 后续（已处理）：上 VPS 核实 demo_os 容器与镜像都已删除，`/opt/demo_os/data`（87M）和 infra_mysql 的 `demo_os` 库
+  （388K）仍保留；Kelvin 在 Cloudflare 删除了 demo 的 DNS 记录（acuventech.com 没有泛解析，删后权威 NS 已不返回地址，
+  curl 报无法解析）；`E:\projects\CLAUDE.md` / `AGENTS.md` 已把 demo_os 标为下线。
