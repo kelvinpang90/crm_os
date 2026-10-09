@@ -5,25 +5,32 @@ could read, edit or annotate anyone's customer -- and, through PUT, hand that
 customer to themselves, after which every other check would wave them through.
 A refusal answers exactly like a missing customer (404 NOT_FOUND).
 """
+
 import pytest
 from sqlalchemy import func, select
 
 from app.models.contact import Contact
 from app.models.deal import Deal
 from app.services import contact_service
-
 from tests._people import ADMIN, BOSS, OTHER, REP, logged_in_as, seed_people
 
 
 async def _seed(session_maker) -> None:
     await seed_people(session_maker)
     async with session_maker() as session:
-        session.add_all([
-            Contact(id="c-demo", name="Demo visitor", phone="60144444444",
-                    assigned_to="u-rep", is_gateway=True),
-            Deal(id="d-mine", contact_id="c-mine", assigned_to="u-rep"),
-            Deal(id="d-theirs", contact_id="c-theirs", assigned_to="u-other"),
-        ])
+        session.add_all(
+            [
+                Contact(
+                    id="c-demo",
+                    name="Demo visitor",
+                    phone="60144444444",
+                    assigned_to="u-rep",
+                    is_gateway=True,
+                ),
+                Deal(id="d-mine", contact_id="c-mine", assigned_to="u-rep"),
+                Deal(id="d-theirs", contact_id="c-theirs", assigned_to="u-other"),
+            ]
+        )
         await session.commit()
 
 
@@ -55,7 +62,9 @@ async def test_stranger_gets_not_found(client, async_session_maker, method, url,
 
 @pytest.mark.parametrize("method, url, body", REP_CUSTOMER_ROUTES)
 @pytest.mark.parametrize("user", [REP, BOSS, ADMIN])
-async def test_owner_team_and_admin_get_through(client, async_session_maker, user, method, url, body):
+async def test_owner_team_and_admin_get_through(
+    client, async_session_maker, user, method, url, body
+):
     await _seed(async_session_maker)
     kwargs = {"json": body} if body is not None else {}
     with logged_in_as(user):

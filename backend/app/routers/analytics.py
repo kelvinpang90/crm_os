@@ -1,16 +1,15 @@
-from typing import Annotated
 from datetime import datetime, timedelta
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select, func, case
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.user import User
 from app.models.deal import Deal
-from app.models.contact import Contact
 from app.models.message import Message
+from app.models.user import User
 from app.utils.demo_scope import deal_not_demo, message_not_demo
 from app.utils.response import ok
 
@@ -47,9 +46,9 @@ async def get_analytics(
             func.count(Deal.id).label("total"),
             func.sum(case((Deal.status == "won", 1), else_=0)).label("won"),
             func.sum(case((Deal.status == "lost", 1), else_=0)).label("lost"),
-            func.coalesce(func.sum(
-                case((Deal.status == "won", Deal.amount), else_=0)
-            ), 0).label("deal_amount"),
+            func.coalesce(func.sum(case((Deal.status == "won", Deal.amount), else_=0)), 0).label(
+                "deal_amount"
+            ),
         ).where(*scope)
     )
     row = overview_q.one()
@@ -124,9 +123,9 @@ async def get_analytics(
             Deal.assigned_to,
             func.count(Deal.id).label("total_count"),
             func.sum(case((Deal.won_at.isnot(None), 1), else_=0)).label("won_count"),
-            func.coalesce(func.sum(
-                case((Deal.won_at.isnot(None), Deal.amount), else_=0)
-            ), 0).label("deal_amount"),
+            func.coalesce(func.sum(case((Deal.won_at.isnot(None), Deal.amount), else_=0)), 0).label(
+                "deal_amount"
+            ),
         )
         .where(*scope, Deal.assigned_to.isnot(None), Deal.created_at >= since)
         .group_by(Deal.assigned_to)
@@ -145,17 +144,21 @@ async def get_analytics(
     for r in rankings_raw:
         tc = r.total_count or 0
         wc = r.won_count or 0
-        sales_ranking.append({
-            "user_id": r.assigned_to,
-            "user_name": user_names.get(r.assigned_to, ""),
-            "deal_count": wc,
-            "deal_amount": float(r.deal_amount or 0),
-            "conversion_rate": round(wc / tc * 100, 1) if tc > 0 else 0,
-        })
+        sales_ranking.append(
+            {
+                "user_id": r.assigned_to,
+                "user_name": user_names.get(r.assigned_to, ""),
+                "deal_count": wc,
+                "deal_amount": float(r.deal_amount or 0),
+                "conversion_rate": round(wc / tc * 100, 1) if tc > 0 else 0,
+            }
+        )
 
-    return ok(data={
-        "overview": overview,
-        "conversion_trend": conversion_trend,
-        "channel_distribution": channel_distribution,
-        "sales_ranking": sales_ranking,
-    })
+    return ok(
+        data={
+            "overview": overview,
+            "conversion_trend": conversion_trend,
+            "channel_distribution": channel_distribution,
+            "sales_ranking": sales_ranking,
+        }
+    )

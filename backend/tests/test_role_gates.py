@@ -4,6 +4,7 @@ AutoCount sync rewrites customer data and spends API calls; the projects
 reseed wipes both project tables. Both were open to any logged-in user. A
 manager could also set targets for people outside their team.
 """
+
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -11,16 +12,18 @@ from sqlalchemy import func, select
 
 from app.models.project import Project
 from app.models.sales_target import SalesTarget
-
 from tests._people import ADMIN, BOSS, REP, logged_in_as, seed_people
 
 
 @pytest.mark.parametrize("user, allowed", [(REP, False), (BOSS, True), (ADMIN, True)])
 async def test_autocount_sync_needs_admin_or_manager(client, async_session_maker, user, allowed):
     await seed_people(async_session_maker)
-    with patch(
-        "app.services.autocount_service.sync_all", new=AsyncMock(return_value={})
-    ) as mock_sync, logged_in_as(user):
+    with (
+        patch(
+            "app.services.autocount_service.sync_all", new=AsyncMock(return_value={})
+        ) as mock_sync,
+        logged_in_as(user),
+    ):
         resp = await client.post("/api/autocount/sync")
     assert (resp.status_code == 200) is allowed
     assert mock_sync.await_count == (1 if allowed else 0)
@@ -37,7 +40,9 @@ async def test_projects_reseed_is_admin_only(client, async_session_maker, user):
     assert resp.status_code == 403
     async with async_session_maker() as session:
         kept = (
-            await session.execute(select(func.count()).select_from(Project).where(Project.id == "p-real"))
+            await session.execute(
+                select(func.count()).select_from(Project).where(Project.id == "p-real")
+            )
         ).scalar()
     assert kept == 1
 
@@ -45,10 +50,12 @@ async def test_projects_reseed_is_admin_only(client, async_session_maker, user):
 async def _seed_targets(session_maker) -> None:
     await seed_people(session_maker)
     async with session_maker() as session:
-        session.add_all([
-            SalesTarget(id="st-rep", user_id="u-rep", year=2026, month=10, target_amount=1),
-            SalesTarget(id="st-other", user_id="u-other", year=2026, month=10, target_amount=1),
-        ])
+        session.add_all(
+            [
+                SalesTarget(id="st-rep", user_id="u-rep", year=2026, month=10, target_amount=1),
+                SalesTarget(id="st-other", user_id="u-other", year=2026, month=10, target_amount=1),
+            ]
+        )
         await session.commit()
 
 

@@ -4,23 +4,23 @@ Handles inbound email polling and outbound sending.
 Gracefully degrades when credentials are not configured.
 """
 
-import uuid
 import email
 import logging
 import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import uuid
 from email.header import decode_header
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from email.utils import parseaddr
-from typing import Optional
 from imaplib import IMAP4_SSL
+from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.models.message import Message
 from app.models.contact import Contact
+from app.models.message import Message
 from app.services import routing_service
 
 logger = logging.getLogger(__name__)
@@ -92,9 +92,7 @@ async def _process_email(db: AsyncSession, msg: email.message.Message) -> bool:
 
     # Dedup by external_id
     if message_id:
-        existing = await db.execute(
-            select(Message).where(Message.external_id == message_id)
-        )
+        existing = await db.execute(select(Message).where(Message.external_id == message_id))
         if existing.scalar_one_or_none():
             return False
 
@@ -138,9 +136,7 @@ async def _process_email(db: AsyncSession, msg: email.message.Message) -> bool:
     return True
 
 
-async def send_email(
-    db: AsyncSession, contact_id: str, subject: str, body: str
-) -> Optional[dict]:
+async def send_email(db: AsyncSession, contact_id: str, subject: str, body: str) -> Optional[dict]:
     """Send an email to a contact via SMTP."""
     result = await db.execute(
         select(Contact).where(Contact.id == contact_id, Contact.deleted_at.is_(None))

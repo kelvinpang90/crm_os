@@ -37,6 +37,7 @@ them:
   previous day on any browser west of Greenwich.
 - **Times of day are safe.** `"08:49:20"` has no date, so it does not match.
 """
+
 from __future__ import annotations
 
 import re

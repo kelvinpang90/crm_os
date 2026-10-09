@@ -2,23 +2,21 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Optional
 
-from sqlalchemy import select, func, case
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.routing_rule import RoutingRule
 from app.models.contact import Contact
 from app.models.deal import Deal
+from app.models.routing_rule import RoutingRule
 from app.models.user import User
-
 
 # ---------------------------------------------------------------------------
 # CRUD
 # ---------------------------------------------------------------------------
 
+
 async def list_rules(db: AsyncSession) -> list[dict]:
-    result = await db.execute(
-        select(RoutingRule).order_by(RoutingRule.priority.asc())
-    )
+    result = await db.execute(select(RoutingRule).order_by(RoutingRule.priority.asc()))
     return [_rule_to_dict(r) for r in result.scalars().all()]
 
 
@@ -77,9 +75,7 @@ async def toggle_rule(db: AsyncSession, rule_id: str) -> Optional[dict]:
 
 async def reorder_rules(db: AsyncSession, items: list[dict]) -> list[dict]:
     for item in items:
-        result = await db.execute(
-            select(RoutingRule).where(RoutingRule.id == item["id"])
-        )
+        result = await db.execute(select(RoutingRule).where(RoutingRule.id == item["id"]))
         rule = result.scalar_one_or_none()
         if rule:
             rule.priority = item["priority"]
@@ -90,6 +86,7 @@ async def reorder_rules(db: AsyncSession, items: list[dict]) -> list[dict]:
 # ---------------------------------------------------------------------------
 # Auto-assignment
 # ---------------------------------------------------------------------------
+
 
 async def assign_contact(db: AsyncSession, contact: Contact) -> Optional[str]:
     """Determine the best sales rep to assign a contact to.
@@ -149,15 +146,11 @@ ASSIGN_STRATEGIES = ("rules", "workload", "win_rate")
 
 
 async def _active_sales_ids(db: AsyncSession) -> list[str]:
-    result = await db.execute(
-        select(User.id).where(User.is_active == True, User.role == "sales")
-    )
+    result = await db.execute(select(User.id).where(User.is_active == True, User.role == "sales"))
     return [r for r in result.scalars().all()]
 
 
-async def assign_by_strategy(
-    db: AsyncSession, contact: Contact, strategy: str
-) -> Optional[str]:
+async def assign_by_strategy(db: AsyncSession, contact: Contact, strategy: str) -> Optional[str]:
     """Pick an owner using a strategy the caller names.
 
     Unlike `assign_contact()`, which follows the configured rules and their
@@ -213,9 +206,7 @@ async def _strategy_region(
         return None
 
     # Check if contact's address or company matches any keyword
-    text_to_match = " ".join(
-        filter(None, [contact.address, contact.company, contact.name])
-    )
+    text_to_match = " ".join(filter(None, [contact.address, contact.company, contact.name]))
 
     for kw in keywords:
         if kw in text_to_match:
@@ -262,6 +253,7 @@ async def _strategy_win_rate(db: AsyncSession, eligible: list[str]) -> Optional[
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _rule_to_dict(r: RoutingRule) -> dict:
     return {

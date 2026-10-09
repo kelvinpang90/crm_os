@@ -8,7 +8,6 @@ import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.config import settings
-from app.database import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +16,8 @@ scheduler = AsyncIOScheduler()
 
 async def poll_job():
     """Scheduled job to poll emails."""
-    from app.services.email_service import poll_emails
     from app.database import get_db
+    from app.services.email_service import poll_emails
 
     async for db in get_db():
         try:

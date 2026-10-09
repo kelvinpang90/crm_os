@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import String, Enum, Text, DateTime, Index
+from sqlalchemy import DateTime, Enum, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -10,23 +10,19 @@ from app.database import Base
 class Activity(Base):
     __tablename__ = "activities"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     contact_id: Mapped[str] = mapped_column(String(36), nullable=False)
     user_id: Mapped[str] = mapped_column(String(36), nullable=False)
     type: Mapped[str] = mapped_column(
-        Enum("phone", "email", "meeting", "WhatsApp", "other", "status change", name="activity_type"),
+        Enum(
+            "phone", "email", "meeting", "WhatsApp", "other", "status change", name="activity_type"
+        ),
         nullable=False,
     )
     deal_id: Mapped[str] = mapped_column(String(36), nullable=False)
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
-    follow_date: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, default=datetime.utcnow
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, default=datetime.utcnow
-    )
+    follow_date: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
     __table_args__ = (
         Index("idx_activity_contact_id", "contact_id"),

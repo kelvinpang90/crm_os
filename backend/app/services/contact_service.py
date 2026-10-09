@@ -1,8 +1,8 @@
 import uuid
-from datetime import datetime, date
+from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import select, func, or_, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.contact import Contact
@@ -11,7 +11,6 @@ from app.models.message import Message
 from app.models.user import User
 from app.services import access_service, routing_service
 from app.utils.demo_scope import contact_not_demo
-
 
 VALID_STATUSES = {"lead", "following", "negotiating", "won", "lost"}
 VALID_PRIORITIES = {"high", "mid", "low"}
@@ -122,9 +121,7 @@ async def get_contact(db: AsyncSession, contact_id: str) -> Optional[dict]:
     return d
 
 
-async def create_contact(
-    db: AsyncSession, data: dict, current_user: User
-) -> dict:
+async def create_contact(db: AsyncSession, data: dict, current_user: User) -> dict:
     if data.get("assigned_to"):
         await _validate_assigned_user(db, data["assigned_to"])
     elif current_user.role == "sales":
@@ -155,6 +152,7 @@ async def create_contact(
 
     # Auto-create initial Deal
     from app.models.deal import Deal as DealModel
+
     deal = DealModel(
         id=str(uuid.uuid4()),
         contact_id=contact.id,
@@ -183,6 +181,7 @@ async def update_contact(
 
     if "assigned_to" in data and not data["assigned_to"]:
         from fastapi import HTTPException
+
         raise HTTPException(status_code=422, detail="assigned_to cannot be empty when updating")
     if "assigned_to" in data and data["assigned_to"]:
         await _validate_assigned_user(db, data["assigned_to"])
@@ -190,8 +189,20 @@ async def update_contact(
     new_assignee = data.get("assigned_to")
     reassigned = bool(new_assignee) and new_assignee != contact.assigned_to
 
-    allowed_fields = {"name", "company", "industry", "email", "phone", "address", "notes",
-                      "assigned_to", "tags", "last_contact", "is_archived", "autocount_customer_code"}
+    allowed_fields = {
+        "name",
+        "company",
+        "industry",
+        "email",
+        "phone",
+        "address",
+        "notes",
+        "assigned_to",
+        "tags",
+        "last_contact",
+        "is_archived",
+        "autocount_customer_code",
+    }
     for key, value in data.items():
         if key in allowed_fields and value is not None and hasattr(contact, key):
             setattr(contact, key, value)
@@ -203,9 +214,7 @@ async def update_contact(
         # inherit the customer but see none of the conversation, while the
         # previous owner would still see all of it.
         await db.execute(
-            update(Message)
-            .where(Message.contact_id == contact.id)
-            .values(assigned_to=new_assignee)
+            update(Message).where(Message.contact_id == contact.id).values(assigned_to=new_assignee)
         )
 
     await db.flush()
@@ -237,6 +246,7 @@ async def soft_delete_contact(db: AsyncSession, contact_id: str) -> bool:
 
     # Cascade soft-delete all deals for this contact
     from app.services.deal_service import cascade_delete_by_contact
+
     await cascade_delete_by_contact(db, contact_id)
 
     await db.flush()
@@ -255,8 +265,8 @@ async def import_contacts(
     Row with customer_id: only add a new Deal to the existing Contact.
     Row without customer_id: create new Contact + initial Deal.
     """
-    from app.models.user import User as UserModel
     from app.models.deal import Deal as DealModel
+    from app.models.user import User as UserModel
 
     inserted = 0
     deals_added = 0
@@ -279,7 +289,13 @@ async def import_contacts(
         if assigned_email:
             assigned_user_id = active_users.get(assigned_email)
             if not assigned_user_id:
-                row_errors.append({"row": i, "field": "assigned_to_email", "message": "Sales account not found or inactive"})
+                row_errors.append(
+                    {
+                        "row": i,
+                        "field": "assigned_to_email",
+                        "message": "Sales account not found or inactive",
+                    }
+                )
 
         status = (row.get("status") or "").strip() or "lead"
         if status not in VALID_STATUSES:
@@ -302,7 +318,13 @@ async def import_contacts(
             if not contact or not await access_service.may_access_contact(
                 db, current_user, customer_id
             ):
-                errors.append({"row": i, "field": "customer_id", "message": f"Contact not found: {customer_id}"})
+                errors.append(
+                    {
+                        "row": i,
+                        "field": "customer_id",
+                        "message": f"Contact not found: {customer_id}",
+                    }
+                )
                 skipped += 1
                 continue
 
@@ -352,7 +374,9 @@ async def import_contacts(
             tags_str = (row.get("tags") or "").strip()
             tags = [t.strip() for t in tags_str.split(",") if t.strip()] if tags_str else None
 
-            final_assigned = assigned_user_id or (current_user.id if current_user.role == "sales" else None)
+            final_assigned = assigned_user_id or (
+                current_user.id if current_user.role == "sales" else None
+            )
 
             contact = Contact(
                 id=str(uuid.uuid4()),
@@ -406,12 +430,11 @@ async def import_contacts(
 
 
 async def _validate_assigned_user(db: AsyncSession, user_id: str) -> None:
-    result = await db.execute(
-        select(User).where(User.id == user_id, User.is_active == True)
-    )
+    result = await db.execute(select(User).where(User.id == user_id, User.is_active == True))
     user = result.scalar_one_or_none()
     if not user:
         from fastapi import HTTPException
+
         raise HTTPException(status_code=400, detail="Assigned sales user not found or inactive")
 
 
@@ -427,10 +450,7 @@ async def _bulk_deal_summary(db: AsyncSession, contact_ids: list[str]) -> dict:
         .where(Deal.contact_id.in_(contact_ids), Deal.deleted_at.is_(None))
         .group_by(Deal.contact_id)
     )
-    return {
-        row.contact_id: {"count": row.cnt, "total": float(row.total)}
-        for row in r.all()
-    }
+    return {row.contact_id: {"count": row.cnt, "total": float(row.total)} for row in r.all()}
 
 
 def _contact_to_dict(contact: Contact) -> dict:

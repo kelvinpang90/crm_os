@@ -5,6 +5,7 @@ Sent without a `Z` the browser reads it as local time by specification, which is
 why a card created at 16:49 showed as 08:49. These guard the one place that
 fixes it, and -- more to the point -- the three things that place must never do.
 """
+
 import datetime
 import decimal
 import json
@@ -118,8 +119,6 @@ class TestRender:
 def test_everything_marked_parses_back_as_utc():
     """The point of the exercise: a browser can now read the instant rather than
     guess at it."""
-    parsed = datetime.datetime.fromisoformat(
-        mark_utc("2026-09-12T08:49:20").replace("Z", "+00:00")
-    )
+    parsed = datetime.datetime.fromisoformat(mark_utc("2026-09-12T08:49:20").replace("Z", "+00:00"))
     assert parsed.utcoffset() == datetime.timedelta(0)
     assert parsed.astimezone(datetime.timezone(datetime.timedelta(hours=8))).hour == 16

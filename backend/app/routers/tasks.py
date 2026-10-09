@@ -1,7 +1,7 @@
-from typing import Annotated, Optional
 from datetime import date
+from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, Query, HTTPException, status
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -9,7 +9,7 @@ from app.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.task import TaskCreate, TaskUpdate
 from app.services import access_service, task_service
-from app.utils.response import ok, fail
+from app.utils.response import fail, ok
 
 router = APIRouter()
 
@@ -46,7 +46,8 @@ async def list_tasks(
     page_size: int = 20,
 ):
     data = await task_service.list_tasks(
-        db, current_user,
+        db,
+        current_user,
         status=status_filter,
         priority=priority,
         assigned_to=assigned_to,

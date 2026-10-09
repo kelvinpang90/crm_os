@@ -5,11 +5,12 @@ and "may I answer it" have to be the same question. Both send endpoints took a
 current_user and never looked at it.
 """
 
-import pytest
 from unittest.mock import AsyncMock, patch
 
-from app.main import app
+import pytest
+
 from app.dependencies import get_current_user
+from app.main import app
 from app.models.contact import Contact
 from app.models.user import User
 from app.services.access_service import may_access_contact
@@ -22,17 +23,35 @@ ADMIN = User(id="u-admin", name="Admin", email="admin@example.com", password_has
 
 async def _seed(session_maker) -> None:
     async with session_maker() as session:
-        session.add_all([
-            User(id="u-rep", name="Rep", email="rep@example.com", password_hash="x",
-                 role="sales", manager_id="u-boss"),
-            User(id="u-other", name="Other", email="other@example.com", password_hash="x",
-                 role="sales"),
-            User(id="u-boss", name="Boss", email="boss@example.com", password_hash="x",
-                 role="manager"),
-            Contact(id="c-mine", name="Mine", phone="60111111111", assigned_to="u-rep"),
-            Contact(id="c-theirs", name="Theirs", phone="60122222222", assigned_to="u-other"),
-            Contact(id="c-orphan", name="Orphan", phone="60133333333", assigned_to=None),
-        ])
+        session.add_all(
+            [
+                User(
+                    id="u-rep",
+                    name="Rep",
+                    email="rep@example.com",
+                    password_hash="x",
+                    role="sales",
+                    manager_id="u-boss",
+                ),
+                User(
+                    id="u-other",
+                    name="Other",
+                    email="other@example.com",
+                    password_hash="x",
+                    role="sales",
+                ),
+                User(
+                    id="u-boss",
+                    name="Boss",
+                    email="boss@example.com",
+                    password_hash="x",
+                    role="manager",
+                ),
+                Contact(id="c-mine", name="Mine", phone="60111111111", assigned_to="u-rep"),
+                Contact(id="c-theirs", name="Theirs", phone="60122222222", assigned_to="u-other"),
+                Contact(id="c-orphan", name="Orphan", phone="60133333333", assigned_to=None),
+            ]
+        )
         await session.commit()
 
 
@@ -62,9 +81,7 @@ async def test_send_endpoint_refuses_and_sends_nothing(client, async_session_mak
 
     app.dependency_overrides[get_current_user] = lambda: REP
     try:
-        with patch(
-            "app.services.whatsapp_service.send_message", new=AsyncMock()
-        ) as mock_send:
+        with patch("app.services.whatsapp_service.send_message", new=AsyncMock()) as mock_send:
             resp = await client.post(
                 "/api/messages/whatsapp/send",
                 json={"contact_id": "c-theirs", "message": "hello"},

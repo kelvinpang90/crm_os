@@ -1,22 +1,26 @@
-from typing import Annotated, Optional
 from io import BytesIO
+from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, Form, Query, UploadFile, File
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from fastapi.responses import StreamingResponse
+from openpyxl import Workbook, load_workbook
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from openpyxl import Workbook, load_workbook
 
 from app.database import get_db
 from app.dependencies import get_current_user, require_role
 from app.models.deal import Deal
 from app.models.user import User
-from app.schemas.contact import ContactCreate, ContactUpdate, ArchiveRequest
 from app.schemas.activity import ActivityCreate
+from app.schemas.contact import ArchiveRequest, ContactCreate, ContactUpdate
 from app.services import (
-    access_service, contact_service, activity_service, autocount_service, routing_service,
+    access_service,
+    activity_service,
+    autocount_service,
+    contact_service,
+    routing_service,
 )
-from app.utils.response import ok, fail
+from app.utils.response import fail, ok
 
 router = APIRouter()
 
@@ -41,8 +45,16 @@ async def list_contacts(
     is_archived: int = Query(0),
 ):
     result = await contact_service.list_contacts(
-        db, current_user, search, industry,
-        assigned_to, page, page_size, sort_by, order, is_archived,
+        db,
+        current_user,
+        search,
+        industry,
+        assigned_to,
+        page,
+        page_size,
+        sort_by,
+        order,
+        is_archived,
     )
     return ok(data=result)
 
@@ -53,24 +65,60 @@ async def download_import_template():
     ws = wb.active
     ws.title = "customer template"
     headers = [
-        "name", "company", "industry", "email", "phone", "address", "remark",
-        "tag", "assigned_to_email",
-        "status", "priority", "amount", "deal_title",
+        "name",
+        "company",
+        "industry",
+        "email",
+        "phone",
+        "address",
+        "remark",
+        "tag",
+        "assigned_to_email",
+        "status",
+        "priority",
+        "amount",
+        "deal_title",
         "customer_id (add deal only)",
     ]
     ws.append(headers)
     # Example row — new contact
-    ws.append([
-        "Zhang San", "Example Tech Co.", "Technology/IT",
-        "zhangsan@example.com", "13800138000", "123 Main St, Beijing",
-        "Example note", "VIP,key account", "sales@crm.com",
-        "lead", "mid", "100000", "", "",
-    ])
+    ws.append(
+        [
+            "Zhang San",
+            "Example Tech Co.",
+            "Technology/IT",
+            "zhangsan@example.com",
+            "13800138000",
+            "123 Main St, Beijing",
+            "Example note",
+            "VIP,key account",
+            "sales@crm.com",
+            "lead",
+            "mid",
+            "100000",
+            "",
+            "",
+        ]
+    )
     # Example row — add deal to existing contact
-    ws.append([
-        "", "", "", "", "", "", "", "", "",
-        "negotiating", "high", "50000", "Q2 renewal", "existing-contact-uuid",
-    ])
+    ws.append(
+        [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "negotiating",
+            "high",
+            "50000",
+            "Q2 renewal",
+            "existing-contact-uuid",
+        ]
+    )
 
     buffer = BytesIO()
     wb.save(buffer)
@@ -106,10 +154,18 @@ async def import_contacts(
     ws = wb.active
 
     field_map = {
-        "name": "name", "company": "company", "industry": "industry",
-        "email": "email", "phone": "phone", "address": "address", "remark": "notes",
-        "tag": "tags", "assigned_to_email": "assigned_to_email",
-        "status": "status", "priority": "priority", "amount": "deal_value",
+        "name": "name",
+        "company": "company",
+        "industry": "industry",
+        "email": "email",
+        "phone": "phone",
+        "address": "address",
+        "remark": "notes",
+        "tag": "tags",
+        "assigned_to_email": "assigned_to_email",
+        "status": "status",
+        "priority": "priority",
+        "amount": "deal_value",
         "deal_title": "deal_title",
         "customer_id (add deal only)": "id",
     }
@@ -138,8 +194,11 @@ async def import_contacts(
     wb.close()
 
     result = await contact_service.import_contacts(
-        db, parsed_rows, current_user,
-        auto_assign=auto_assign, assign_strategy=assign_strategy,
+        db,
+        parsed_rows,
+        current_user,
+        auto_assign=auto_assign,
+        assign_strategy=assign_strategy,
     )
     return ok(data=result)
 
@@ -223,6 +282,7 @@ async def delete_contact(
 
 # --- AutoCount routes ---
 
+
 @router.get("/{contact_id}/autocount-documents")
 async def list_autocount_documents(
     contact_id: str,
@@ -236,6 +296,7 @@ async def list_autocount_documents(
 
 
 # --- Activity routes ---
+
 
 @router.get("/{contact_id}/activities")
 async def list_activities(
@@ -272,6 +333,12 @@ async def create_activity(
     if not deal_matches:
         return fail("Deal not found", code="NOT_FOUND", status_code=404)
     activity = await activity_service.create_activity(
-        db, contact_id, body.deal_id, current_user.id, body.type, body.content, body.follow_date,
+        db,
+        contact_id,
+        body.deal_id,
+        current_user.id,
+        body.type,
+        body.content,
+        body.follow_date,
     )
     return ok(data=activity, message="Follow-up activity recorded", status_code=201)

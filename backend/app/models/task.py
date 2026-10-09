@@ -1,7 +1,7 @@
 import uuid
-from datetime import datetime, date
+from datetime import date, datetime
 
-from sqlalchemy import String, Enum, DateTime, Date, Boolean, Index
+from sqlalchemy import Boolean, Date, DateTime, Enum, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -10,9 +10,7 @@ from app.database import Base
 class Task(Base):
     __tablename__ = "tasks"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     contact_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     assigned_to: Mapped[str | None] = mapped_column(String(36), nullable=True)
@@ -22,9 +20,7 @@ class Task(Base):
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     is_done: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     done_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, default=datetime.utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )

@@ -12,6 +12,7 @@ rep's own id nor a member of any team list -- and a record that does not exist
 is refused the same way, so a caller can answer both with one response and
 never confirm that an id exists.
 """
+
 from typing import Optional
 
 from sqlalchemy import select

@@ -4,6 +4,7 @@ The deploy workflow polls /api/health until the body contains the SHA it just
 deployed; that is how a green run proves the new version is live, not just
 that some version answers.
 """
+
 from app.config import settings
 
 SHA = "0123456789abcdef0123456789abcdef01234567"

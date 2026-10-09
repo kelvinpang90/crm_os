@@ -1,8 +1,15 @@
 import uuid
-from datetime import datetime, date
+from datetime import date, datetime
 
 from sqlalchemy import (
-    String, Text, DateTime, Date, Index, JSON, SmallInteger, Boolean,
+    JSON,
+    Boolean,
+    Date,
+    DateTime,
+    Index,
+    SmallInteger,
+    String,
+    Text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -12,9 +19,7 @@ from app.database import Base
 class Contact(Base):
     __tablename__ = "contacts"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     company: Mapped[str | None] = mapped_column(String(200), nullable=True)
     industry: Mapped[str | None] = mapped_column(String(50), nullable=True)
@@ -34,9 +39,7 @@ class Contact(Base):
     # (whatsapp_gateway) rather than this project's own WhatsApp number.
     is_gateway: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, default=datetime.utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )

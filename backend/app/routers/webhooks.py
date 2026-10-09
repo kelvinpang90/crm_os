@@ -1,8 +1,7 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Request, Query, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import Depends
 
 from app.database import get_db
 from app.services import whatsapp_service

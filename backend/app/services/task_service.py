@@ -1,12 +1,12 @@
 import uuid
-from datetime import datetime, date
+from datetime import date, datetime
 from typing import Optional
 
-from sqlalchemy import select, func, or_
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.task import Task
 from app.models.contact import Contact
+from app.models.task import Task
 from app.models.user import User
 
 
@@ -57,7 +57,12 @@ async def list_tasks(
     total = (await db.execute(count_q)).scalar() or 0
 
     # Paginate
-    query = query.order_by(Task.is_done.asc(), func.isnull(Task.due_date).asc(), Task.due_date.asc(), Task.created_at.desc())
+    query = query.order_by(
+        Task.is_done.asc(),
+        func.isnull(Task.due_date).asc(),
+        Task.due_date.asc(),
+        Task.created_at.desc(),
+    )
     query = query.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(query)
     tasks = result.scalars().all()

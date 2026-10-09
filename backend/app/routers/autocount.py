@@ -8,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.dependencies import require_role
 from app.models.user import User
-from app.services import autocount_service, autocount_client
-from app.utils.response import ok, fail
+from app.services import autocount_client, autocount_service
+from app.utils.response import fail, ok
 
 logger = logging.getLogger(__name__)
 
@@ -27,5 +27,7 @@ async def sync_now(
         return fail(str(e), code="AUTOCOUNT_API_ERROR", status_code=502)
     except httpx.HTTPError as e:
         logger.exception("AutoCount sync: network error reaching the API")
-        return fail(f"Could not reach AutoCount API: {e}", code="AUTOCOUNT_NETWORK_ERROR", status_code=502)
+        return fail(
+            f"Could not reach AutoCount API: {e}", code="AUTOCOUNT_NETWORK_ERROR", status_code=502
+        )
     return ok(data=result, message="Sync complete")

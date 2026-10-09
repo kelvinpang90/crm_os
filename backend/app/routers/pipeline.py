@@ -1,14 +1,14 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.user import User
-from app.models.deal import Deal
 from app.models.contact import Contact
+from app.models.deal import Deal
+from app.models.user import User
 from app.utils.demo_scope import contact_not_demo
 from app.utils.response import ok
 
@@ -82,11 +82,13 @@ async def get_pipeline(
             for row in r.all()
         ]
 
-        stages.append({
-            "status": status,
-            "count": count,
-            "total_value": float(total_value),
-            "deals": deals,
-        })
+        stages.append(
+            {
+                "status": status,
+                "count": count,
+                "total_value": float(total_value),
+                "deals": deals,
+            }
+        )
 
     return ok(data={"stages": stages})

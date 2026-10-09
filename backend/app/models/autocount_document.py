@@ -1,8 +1,8 @@
 import uuid
-from datetime import datetime, date
+from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import String, Enum, DateTime, Date, Index, DECIMAL, JSON
+from sqlalchemy import DECIMAL, JSON, Date, DateTime, Enum, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -18,9 +18,7 @@ class AutocountDocument(Base):
 
     __tablename__ = "autocount_documents"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     doc_type: Mapped[str] = mapped_column(
         Enum("invoice", "quotation", name="autocount_doc_type"), nullable=False
     )

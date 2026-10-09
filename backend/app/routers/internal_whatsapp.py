@@ -12,8 +12,10 @@ router = APIRouter()
 
 
 def _verify_internal_secret(x_internal_secret: Annotated[str | None, Header()] = None) -> None:
-    if not settings.internal_shared_secret or not x_internal_secret or not hmac.compare_digest(
-        x_internal_secret, settings.internal_shared_secret
+    if (
+        not settings.internal_shared_secret
+        or not x_internal_secret
+        or not hmac.compare_digest(x_internal_secret, settings.internal_shared_secret)
     ):
         raise HTTPException(status_code=403, detail="Invalid internal secret")
 
