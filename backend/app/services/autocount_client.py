@@ -8,6 +8,7 @@ holds at most 100 records per the official docs, but this client doesn't
 hardcode that number — it just keeps requesting the next page until one
 comes back empty, so it stays correct even if that limit changes.
 """
+
 import logging
 from typing import Any
 
@@ -58,8 +59,14 @@ async def _get_all_pages(path: str, extra_params: dict[str, Any] | None = None) 
 # requesting them; the rest must be requested explicitly via `field` or
 # they're omitted.
 _DEBTOR_FIELDS = [
-    "AccNo", "CompanyName", "Attention", "EmailAddress", "Phone1", "Address",
-    "IsActive", "NatureOfBusiness",
+    "AccNo",
+    "CompanyName",
+    "Attention",
+    "EmailAddress",
+    "Phone1",
+    "Address",
+    "IsActive",
+    "NatureOfBusiness",
 ]
 
 

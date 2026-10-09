@@ -70,9 +70,7 @@ async def test_existing_contact_upgraded_to_gateway(client, async_session_maker)
     direct-Graph branch and replies with this service's own credentials, which
     breaks as soon as those credentials are centralised in the gateway."""
     async with async_session_maker() as session:
-        session.add(
-            Contact(id="pre-gateway", name="Old", phone="60155555555", is_gateway=False)
-        )
+        session.add(Contact(id="pre-gateway", name="Old", phone="60155555555", is_gateway=False))
         await session.commit()
 
     resp = await client.post(

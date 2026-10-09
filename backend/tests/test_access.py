@@ -6,13 +6,13 @@ Sending was guarded by `_may_message_contact`, but the conversation itself
 flow has to survive the fix: a demo visitor is routed to a rep like any other
 customer, and that rep must still be able to read and answer them.
 """
+
 import pytest
 from sqlalchemy import select
 
 from app.models.contact import Contact
 from app.models.message import Message
 from app.services import access_service
-
 from tests._people import ADMIN, BOSS, OTHER, REP, logged_in_as, seed_people
 
 
@@ -40,15 +40,37 @@ async def test_owner_matrix(async_session_maker, user, owner_id, allowed):
 async def _seed_conversations(session_maker) -> None:
     await seed_people(session_maker)
     async with session_maker() as session:
-        session.add_all([
-            Contact(id="c-demo", name="Demo visitor", phone="60144444444",
-                    assigned_to="u-rep", is_gateway=True),
-            Message(id="m-mine", contact_id="c-mine", channel="whatsapp", direction="inbound",
-                    sender_id="60111111111", recipient_id="biz", body="mine-secret", assigned_to="u-rep"),
-            Message(id="m-demo", contact_id="c-demo", channel="whatsapp", direction="inbound",
-                    sender_id="60144444444", recipient_id="biz", body="demo hi",
-                    assigned_to="u-rep"),
-        ])
+        session.add_all(
+            [
+                Contact(
+                    id="c-demo",
+                    name="Demo visitor",
+                    phone="60144444444",
+                    assigned_to="u-rep",
+                    is_gateway=True,
+                ),
+                Message(
+                    id="m-mine",
+                    contact_id="c-mine",
+                    channel="whatsapp",
+                    direction="inbound",
+                    sender_id="60111111111",
+                    recipient_id="biz",
+                    body="mine-secret",
+                    assigned_to="u-rep",
+                ),
+                Message(
+                    id="m-demo",
+                    contact_id="c-demo",
+                    channel="whatsapp",
+                    direction="inbound",
+                    sender_id="60144444444",
+                    recipient_id="biz",
+                    body="demo hi",
+                    assigned_to="u-rep",
+                ),
+            ]
+        )
         await session.commit()
 
 

@@ -1,16 +1,16 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select, and_
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import get_current_user, require_role
+from app.dependencies import require_role
 from app.models.sales_target import SalesTarget
 from app.models.user import User
 from app.schemas.sales_target import SalesTargetCreate, SalesTargetUpdate
 from app.services import access_service
-from app.utils.response import ok, fail
+from app.utils.response import fail, ok
 
 router = APIRouter()
 

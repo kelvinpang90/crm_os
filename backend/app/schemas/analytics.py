@@ -1,9 +1,9 @@
-from typing import Optional
 from pydantic import BaseModel
 
 
 class ConversionPoint(BaseModel):
     """转化率趋势数据点"""
+
     date: str
     new_contacts: int
     won: int
@@ -11,6 +11,7 @@ class ConversionPoint(BaseModel):
 
 class ChannelDistribution(BaseModel):
     """渠道分布"""
+
     channel: str
     count: int
     percentage: float
@@ -18,6 +19,7 @@ class ChannelDistribution(BaseModel):
 
 class SalesRanking(BaseModel):
     """销售排名"""
+
     user_id: str
     user_name: str
     deal_count: int
@@ -27,6 +29,7 @@ class SalesRanking(BaseModel):
 
 class AnalyticsOverview(BaseModel):
     """分析概览"""
+
     total_contacts: int
     total_won: int
     total_lost: int
@@ -37,6 +40,7 @@ class AnalyticsOverview(BaseModel):
 
 class AnalyticsDashboard(BaseModel):
     """完整分析报表"""
+
     overview: AnalyticsOverview
     conversion_trend: list[ConversionPoint]
     channel_distribution: list[ChannelDistribution]

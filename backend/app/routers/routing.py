@@ -6,9 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.dependencies import require_role
 from app.models.user import User
-from app.schemas.routing import RoutingRuleCreate, RoutingRuleUpdate, ReorderRequest
+from app.schemas.routing import ReorderRequest, RoutingRuleCreate, RoutingRuleUpdate
 from app.services import routing_service
-from app.utils.response import ok, fail
+from app.utils.response import fail, ok
 
 router = APIRouter()
 
@@ -39,9 +39,7 @@ async def update_rule(
     _admin: Annotated[User, Depends(require_role("admin"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    data = await routing_service.update_rule(
-        db, rule_id, body.model_dump(exclude_unset=True)
-    )
+    data = await routing_service.update_rule(db, rule_id, body.model_dump(exclude_unset=True))
     if not data:
         return fail(message="Rule not found", code=404)
     return ok(data=data)
@@ -77,7 +75,5 @@ async def reorder_rules(
     _admin: Annotated[User, Depends(require_role("admin"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    data = await routing_service.reorder_rules(
-        db, [item.model_dump() for item in body.rules]
-    )
+    data = await routing_service.reorder_rules(db, [item.model_dump() for item in body.rules])
     return ok(data=data)

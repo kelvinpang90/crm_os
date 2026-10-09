@@ -13,17 +13,18 @@ notes in tasks/todo.md): the debtor/listing endpoint has no incremental
 filter at all, and invoice/quotation listing's `lastModifiedDate` filter
 is deliberately not used yet — noted there as a future upgrade.
 """
+
 import logging
 import uuid
-from datetime import datetime, date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.contact import Contact
 from app.models.autocount_document import AutocountDocument
+from app.models.contact import Contact
 from app.services import autocount_client
 
 logger = logging.getLogger(__name__)

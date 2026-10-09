@@ -1,18 +1,18 @@
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select, func
+from fastapi import APIRouter, Depends
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.user import User
-from app.models.message import Message
 from app.models.contact import Contact
-from app.schemas.message import WhatsAppSendRequest, EmailSendRequest
-from app.services import access_service, whatsapp_service, email_service
+from app.models.message import Message
+from app.models.user import User
+from app.schemas.message import EmailSendRequest, WhatsAppSendRequest
+from app.services import access_service, email_service, whatsapp_service
 from app.services.whatsapp_service import WhatsAppSendError
-from app.utils.response import ok, fail
+from app.utils.response import fail, ok
 
 router = APIRouter()
 
@@ -40,6 +40,7 @@ async def list_messages(
         query = query.where(Message.assigned_to == current_user.id)
     elif current_user.role == "manager":
         from app.services.dashboard_service import _get_team_ids
+
         team_ids = await _get_team_ids(db, current_user.id)
         query = query.where(Message.assigned_to.in_(team_ids))
 
@@ -69,12 +70,14 @@ async def list_messages(
             d["contact_name"] = cr.scalar()
         items.append(d)
 
-    return ok(data={
-        "data": items,
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-    })
+    return ok(
+        data={
+            "data": items,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+        }
+    )
 
 
 @router.get("/contact/{contact_id}")
@@ -87,9 +90,7 @@ async def contact_messages(
         return fail(message=NOT_YOURS_TO_READ, code="NOT_ASSIGNED", status_code=403)
 
     result = await db.execute(
-        select(Message)
-        .where(Message.contact_id == contact_id)
-        .order_by(Message.created_at.asc())
+        select(Message).where(Message.contact_id == contact_id).order_by(Message.created_at.asc())
     )
     messages = [_msg_to_dict(m) for m in result.scalars().all()]
     return ok(data=messages)
@@ -129,7 +130,9 @@ async def send_whatsapp(
         data = await whatsapp_service.send_message(db, body.contact_id, body.message)
     except WhatsAppSendError as exc:
         if exc.reason == "no_phone":
-            return fail(message="Contact not found or has no phone number", code="NO_PHONE", status_code=400)
+            return fail(
+                message="Contact not found or has no phone number", code="NO_PHONE", status_code=400
+            )
         return fail(message=f"WhatsApp API error: {exc.detail}", code="API_ERROR", status_code=502)
     return ok(data=data)
 

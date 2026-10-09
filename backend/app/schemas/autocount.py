@@ -1,6 +1,7 @@
-from typing import Optional
-from datetime import datetime, date
+from datetime import date, datetime
 from decimal import Decimal
+from typing import Optional
+
 from pydantic import BaseModel
 
 

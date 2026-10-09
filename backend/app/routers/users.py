@@ -1,20 +1,21 @@
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, EmailStr, field_validator
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import get_current_user, require_role
 from app.models.user import User
+from app.utils.response import fail, ok
 from app.utils.security import hash_password
-from app.utils.response import ok, fail
 
 router = APIRouter()
 
 
 # ---------- Schemas ----------
+
 
 class UserCreate(BaseModel):
     name: str
@@ -42,6 +43,7 @@ class UserUpdate(BaseModel):
 
 # ---------- Helpers ----------
 
+
 def _user_to_dict(u: User) -> dict:
     return {
         "id": u.id,
@@ -59,6 +61,7 @@ def _user_to_dict(u: User) -> dict:
 
 # ---------- Endpoints ----------
 
+
 @router.get("")
 async def list_users(
     current_user: Annotated[User, Depends(get_current_user)],
@@ -69,9 +72,7 @@ async def list_users(
     if current_user.role == "sales":
         query = query.where(User.id == current_user.id)
     elif current_user.role == "manager":
-        query = query.where(
-            (User.manager_id == current_user.id) | (User.id == current_user.id)
-        )
+        query = query.where((User.manager_id == current_user.id) | (User.id == current_user.id))
     # admin sees all
 
     result = await db.execute(query.order_by(User.name))
@@ -130,9 +131,7 @@ async def update_user(
         user.name = body.name
     if body.email is not None:
         # Check duplicate
-        dup = await db.execute(
-            select(User).where(User.email == body.email, User.id != user_id)
-        )
+        dup = await db.execute(select(User).where(User.email == body.email, User.id != user_id))
         if dup.scalar_one_or_none():
             return fail(message="Email already exists", code=400)
         user.email = body.email

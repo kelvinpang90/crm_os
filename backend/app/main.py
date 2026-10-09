@@ -6,7 +6,23 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import engine
 from app.middleware.logging import AccessLogMiddleware
-from app.routers import auth, contacts, dashboard, users, tasks, pipeline, routing, webhooks, messages, analytics, sales_targets, deals, projects, autocount, internal_whatsapp
+from app.routers import (
+    analytics,
+    auth,
+    autocount,
+    contacts,
+    dashboard,
+    deals,
+    internal_whatsapp,
+    messages,
+    pipeline,
+    projects,
+    routing,
+    sales_targets,
+    tasks,
+    users,
+    webhooks,
+)
 
 
 @asynccontextmanager
@@ -15,9 +31,11 @@ async def lifespan(app: FastAPI):
     async with engine.connect() as conn:
         await conn.execute(__import__("sqlalchemy").text("SELECT 1"))
     # Start email poller
-    from app.tasks.email_poller import start_email_poller, stop_email_poller
+    # Email poller is disabled; the import stays so re-enabling is just uncommenting the two calls
     # start_email_poller()
     from app.tasks.autocount_poller import start_autocount_poller, stop_autocount_poller
+    from app.tasks.email_poller import start_email_poller, stop_email_poller  # noqa: F401
+
     start_autocount_poller()
     yield
     # Shutdown

@@ -1,22 +1,20 @@
 from datetime import date, datetime, timedelta
 from typing import Optional
 
-from sqlalchemy import and_, select, func, case, extract
+from sqlalchemy import and_, case, extract, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.activity import Activity
 from app.models.contact import Contact
 from app.models.deal import Deal
-from app.models.activity import Activity
+from app.models.sales_target import SalesTarget
 from app.models.task import Task
 from app.models.user import User
-from app.models.sales_target import SalesTarget
 from app.utils.demo_scope import contact_not_demo, deal_not_demo
 
 
 async def _get_team_ids(db: AsyncSession, manager_id: str) -> list[str]:
-    result = await db.execute(
-        select(User.id).where(User.manager_id == manager_id)
-    )
+    result = await db.execute(select(User.id).where(User.manager_id == manager_id))
     ids = [r for r in result.scalars().all()]
     ids.append(manager_id)
     return ids
@@ -35,6 +33,7 @@ def _contact_in_stats():
 # ---------------------------------------------------------------------------
 # Admin Dashboard
 # ---------------------------------------------------------------------------
+
 
 async def get_admin_dashboard(db: AsyncSession) -> dict:
     today = date.today()
@@ -61,9 +60,7 @@ async def get_admin_dashboard(db: AsyncSession) -> dict:
 
     # KPI 3: quoting count (deals in negotiating)
     r = await db.execute(
-        select(func.count(Deal.id)).where(
-            _deal_in_stats(), Deal.status == "negotiating"
-        )
+        select(func.count(Deal.id)).where(_deal_in_stats(), Deal.status == "negotiating")
     )
     quoting_count = r.scalar() or 0
 
@@ -115,9 +112,7 @@ async def get_admin_dashboard(db: AsyncSession) -> dict:
     return {"kpis": kpis, "funnel": funnel}
 
 
-async def _build_funnel(
-    db: AsyncSession, scope_ids: Optional[list[str]] = None
-) -> list[dict]:
+async def _build_funnel(db: AsyncSession, scope_ids: Optional[list[str]] = None) -> list[dict]:
     """Build 5-stage funnel. If scope_ids given, filter by Deal.assigned_to."""
 
     def scope(stmt):
@@ -171,9 +166,7 @@ async def _build_funnel(
     return stages
 
 
-async def _build_manager_funnel(
-    db: AsyncSession, scope_ids: list[str]
-) -> list[dict]:
+async def _build_manager_funnel(db: AsyncSession, scope_ids: list[str]) -> list[dict]:
     """Build 6-stage funnel for manager (adds 'negotiating' stage)."""
     stages = await _build_funnel(db, scope_ids)
 
@@ -207,9 +200,9 @@ async def _build_manager_funnel(
 # Manager Dashboard
 # ---------------------------------------------------------------------------
 
+
 async def get_manager_dashboard(db: AsyncSession, user: User) -> dict:
     team_ids = await _get_team_ids(db, user.id)
-    today = date.today()
     now = datetime.utcnow()
     year, month = now.year, now.month
 
@@ -264,9 +257,7 @@ async def get_manager_dashboard(db: AsyncSession, user: User) -> dict:
     # KPI 5: avg sales cycle (last 90 days, won deals)
     cutoff = now - timedelta(days=90)
     r = await db.execute(
-        select(
-            func.avg(func.datediff(Deal.won_at, Deal.created_at))
-        ).where(
+        select(func.avg(func.datediff(Deal.won_at, Deal.created_at))).where(
             _deal_in_stats(),
             Deal.status == "won",
             Deal.assigned_to.in_(team_ids),
@@ -292,6 +283,7 @@ async def get_manager_dashboard(db: AsyncSession, user: User) -> dict:
 # ---------------------------------------------------------------------------
 # Sales Dashboard
 # ---------------------------------------------------------------------------
+
 
 async def get_sales_dashboard(db: AsyncSession, user: User) -> dict:
     uid = user.id
@@ -369,10 +361,12 @@ async def get_sales_dashboard(db: AsyncSession, user: User) -> dict:
             func.count(Deal.id),
             func.coalesce(func.sum(Deal.amount), 0),
             func.max(Deal.updated_at),
-        ).where(
+        )
+        .where(
             _deal_in_stats(),
             Deal.assigned_to == uid,
-        ).group_by(Deal.status)
+        )
+        .group_by(Deal.status)
     )
     rows = r.all()
     status_map = {row[0]: row for row in rows}
@@ -388,19 +382,23 @@ async def get_sales_dashboard(db: AsyncSession, user: User) -> dict:
     for status_val, stage_key in stage_order:
         row = status_map.get(status_val)
         if row:
-            pipeline.append({
-                "stage": stage_key,
-                "count": row[1],
-                "amount": float(row[2]),
-                "last_updated": row[3].isoformat() if row[3] else None,
-            })
+            pipeline.append(
+                {
+                    "stage": stage_key,
+                    "count": row[1],
+                    "amount": float(row[2]),
+                    "last_updated": row[3].isoformat() if row[3] else None,
+                }
+            )
         else:
-            pipeline.append({
-                "stage": stage_key,
-                "count": 0,
-                "amount": 0,
-                "last_updated": None,
-            })
+            pipeline.append(
+                {
+                    "stage": stage_key,
+                    "count": 0,
+                    "amount": 0,
+                    "last_updated": None,
+                }
+            )
 
     return {"kpis": kpis, "pipeline": pipeline}
 
@@ -408,6 +406,7 @@ async def get_sales_dashboard(db: AsyncSession, user: User) -> dict:
 # ---------------------------------------------------------------------------
 # Leaderboard
 # ---------------------------------------------------------------------------
+
 
 async def get_leaderboard(db: AsyncSession, month_str: str) -> dict:
     """month_str format: YYYY-MM"""
@@ -436,15 +435,17 @@ async def get_leaderboard(db: AsyncSession, month_str: str) -> dict:
 
     entries = []
     for i, row in enumerate(rows, 1):
-        entries.append({
-            "rank": i,
-            "user_id": row[0],
-            "user_name": row[1],
-            "avatar_url": row[2],
-            "deal_amount": float(row[3]),
-            "deal_count": row[4],
-            "win_rate": 0,
-        })
+        entries.append(
+            {
+                "rank": i,
+                "user_id": row[0],
+                "user_name": row[1],
+                "avatar_url": row[2],
+                "deal_amount": float(row[3]),
+                "deal_count": row[4],
+                "win_rate": 0,
+            }
+        )
 
     if entries:
         user_ids = [e["user_id"] for e in entries]
@@ -453,12 +454,14 @@ async def get_leaderboard(db: AsyncSession, month_str: str) -> dict:
                 Deal.assigned_to,
                 func.count(case((Deal.status == "won", 1))),
                 func.count(Deal.id),
-            ).where(
+            )
+            .where(
                 _deal_in_stats(),
                 Deal.assigned_to.in_(user_ids),
                 extract("year", Deal.created_at) == year,
                 extract("month", Deal.created_at) == month,
-            ).group_by(Deal.assigned_to)
+            )
+            .group_by(Deal.assigned_to)
         )
         wr_map = {}
         for uid, won, total in r.all():
@@ -469,9 +472,7 @@ async def get_leaderboard(db: AsyncSession, month_str: str) -> dict:
     return {"month": month_str, "entries": entries}
 
 
-async def get_team_leaderboard(
-    db: AsyncSession, user: User, month_str: str
-) -> dict:
+async def get_team_leaderboard(db: AsyncSession, user: User, month_str: str) -> dict:
     team_ids = await _get_team_ids(db, user.id)
     year, month = _parse_month(month_str)
 
@@ -501,12 +502,14 @@ async def get_team_leaderboard(
             Deal.assigned_to,
             func.count(case((Deal.status == "won", 1))),
             func.count(Deal.id),
-        ).where(
+        )
+        .where(
             _deal_in_stats(),
             Deal.assigned_to.in_(team_ids),
             extract("year", Deal.created_at) == year,
             extract("month", Deal.created_at) == month,
-        ).group_by(Deal.assigned_to)
+        )
+        .group_by(Deal.assigned_to)
     )
     wr_map = {}
     for uid, won, total in wr_result.all():
@@ -514,15 +517,17 @@ async def get_team_leaderboard(
 
     entries = []
     for i, row in enumerate(rows, 1):
-        entries.append({
-            "rank": i,
-            "user_id": row[0],
-            "user_name": row[1],
-            "avatar_url": row[2],
-            "deal_amount": float(row[3]),
-            "deal_count": row[4],
-            "win_rate": wr_map.get(row[0], 0),
-        })
+        entries.append(
+            {
+                "rank": i,
+                "user_id": row[0],
+                "user_name": row[1],
+                "avatar_url": row[2],
+                "deal_amount": float(row[3]),
+                "deal_count": row[4],
+                "win_rate": wr_map.get(row[0], 0),
+            }
+        )
 
     return {"month": month_str, "entries": entries}
 
@@ -530,6 +535,7 @@ async def get_team_leaderboard(
 # ---------------------------------------------------------------------------
 # GMV Trend
 # ---------------------------------------------------------------------------
+
 
 async def get_gmv_trend(db: AsyncSession, period: str) -> dict:
     now = datetime.utcnow()
@@ -540,17 +546,17 @@ async def get_gmv_trend(db: AsyncSession, period: str) -> dict:
             select(
                 extract("year", Deal.won_at).label("yr"),
                 func.coalesce(func.sum(Deal.amount), 0),
-            ).where(
+            )
+            .where(
                 _deal_in_stats(),
                 Deal.status == "won",
                 Deal.won_at.isnot(None),
                 extract("year", Deal.won_at) >= start_year,
-            ).group_by("yr").order_by("yr")
+            )
+            .group_by("yr")
+            .order_by("yr")
         )
-        data = [
-            {"label": str(int(row[0])), "value": float(row[1])}
-            for row in r.all()
-        ]
+        data = [{"label": str(int(row[0])), "value": float(row[1])} for row in r.all()]
     else:
         # last 12 months
         cutoff = now - timedelta(days=365)
@@ -558,17 +564,17 @@ async def get_gmv_trend(db: AsyncSession, period: str) -> dict:
             select(
                 func.date_format(Deal.won_at, "%Y-%m").label("ym"),
                 func.coalesce(func.sum(Deal.amount), 0),
-            ).where(
+            )
+            .where(
                 _deal_in_stats(),
                 Deal.status == "won",
                 Deal.won_at.isnot(None),
                 Deal.won_at >= cutoff,
-            ).group_by("ym").order_by("ym")
+            )
+            .group_by("ym")
+            .order_by("ym")
         )
-        data = [
-            {"label": row[0], "value": float(row[1])}
-            for row in r.all()
-        ]
+        data = [{"label": row[0], "value": float(row[1])} for row in r.all()]
 
     return {"period": period, "data": data}
 
@@ -576,6 +582,7 @@ async def get_gmv_trend(db: AsyncSession, period: str) -> dict:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _parse_month(month_str: str) -> tuple[int, int]:
     parts = month_str.split("-")

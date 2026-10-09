@@ -22,9 +22,7 @@ async def list_activities(db: AsyncSession, contact_id: str) -> list[dict]:
 
 async def list_by_deal(db: AsyncSession, deal_id: str) -> list[dict]:
     result = await db.execute(
-        select(Activity)
-        .where(Activity.deal_id == deal_id)
-        .order_by(Activity.follow_date.desc())
+        select(Activity).where(Activity.deal_id == deal_id).order_by(Activity.follow_date.desc())
     )
     activities = result.scalars().all()
     return await _serialize(db, activities)
@@ -37,17 +35,19 @@ async def _serialize(db: AsyncSession, activities: list[Activity]) -> list[dict]
         if a.user_id not in user_cache:
             u = await db.execute(select(User.name).where(User.id == a.user_id))
             user_cache[a.user_id] = u.scalar() or ""
-        data.append({
-            "id": a.id,
-            "contact_id": a.contact_id,
-            "deal_id": a.deal_id,
-            "user_id": a.user_id,
-            "user_name": user_cache[a.user_id],
-            "type": a.type,
-            "content": a.content,
-            "follow_date": a.follow_date.isoformat() if a.follow_date else None,
-            "created_at": a.created_at.isoformat() if a.created_at else None,
-        })
+        data.append(
+            {
+                "id": a.id,
+                "contact_id": a.contact_id,
+                "deal_id": a.deal_id,
+                "user_id": a.user_id,
+                "user_name": user_cache[a.user_id],
+                "type": a.type,
+                "content": a.content,
+                "follow_date": a.follow_date.isoformat() if a.follow_date else None,
+                "created_at": a.created_at.isoformat() if a.created_at else None,
+            }
+        )
     return data
 
 

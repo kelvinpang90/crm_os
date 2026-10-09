@@ -41,5 +41,7 @@ def fail(
     fields: Optional[dict] = None,
     status_code: int = 400,
 ) -> Response:
-    body = _render({"success": False, "error": {"code": code, "message": message, "fields": fields}})
+    body = _render(
+        {"success": False, "error": {"code": code, "message": message, "fields": fields}}
+    )
     return Response(content=body, status_code=status_code, media_type="application/json")

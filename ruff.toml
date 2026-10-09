@@ -1,0 +1,18 @@
+# Lint and format rules for the Python code (backend/ and helper scripts).
+# OpenClaw's Worker runs `python -I -m ruff check .` and `python -I -m ruff format --check .`
+# from the repository root, exactly as CI does (.platform/commands.yaml).
+line-length = 100
+target-version = "py311"
+# Markdown: ruff would reformat Python blocks inside tasks/todo.md and other docs.
+# Alembic revisions: migration history is not rewritten.
+extend-exclude = ["*.md", "backend/alembic/versions"]
+
+[lint]
+select = ["E", "F", "W", "I"]
+ignore = [
+    "E501", # long lines: the formatter wraps what it can; the rest are strings and comments
+    "E712", # `== True` / `== False` build SQLAlchemy filters; `is True` would break the query
+]
+
+[lint.isort]
+known-first-party = ["app"]

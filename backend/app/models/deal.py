@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import String, Enum, DateTime, Index, DECIMAL
+from sqlalchemy import DECIMAL, DateTime, Enum, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -11,9 +11,7 @@ from app.database import Base
 class Deal(Base):
     __tablename__ = "deals"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     contact_id: Mapped[str] = mapped_column(String(36), nullable=False)
     title: Mapped[str | None] = mapped_column(String(200), nullable=True)
     status: Mapped[str] = mapped_column(
@@ -26,15 +24,11 @@ class Deal(Base):
         nullable=False,
         default="mid",
     )
-    amount: Mapped[Decimal] = mapped_column(
-        DECIMAL(15, 2), nullable=False, default=Decimal("0.00")
-    )
+    amount: Mapped[Decimal] = mapped_column(DECIMAL(15, 2), nullable=False, default=Decimal("0.00"))
     assigned_to: Mapped[str | None] = mapped_column(String(36), nullable=True)
     won_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, default=datetime.utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )

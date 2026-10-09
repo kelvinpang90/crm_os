@@ -13,20 +13,31 @@ from app.models.deal import Deal
 from app.models.user import User
 from app.services import contact_service
 
-ADMIN = User(id="u-admin", name="Admin", email="admin@example.com",
-             password_hash="x", role="admin")
+ADMIN = User(id="u-admin", name="Admin", email="admin@example.com", password_hash="x", role="admin")
 
 ROWS = [{"name": "Acme Sdn Bhd", "company": "Acme", "email": "hi@acme.com"}]
 
 
 async def _seed_reps(session_maker) -> None:
     async with session_maker() as session:
-        session.add_all([
-            User(id="u-rep1", name="Rep One", email="r1@example.com",
-                 password_hash="x", role="sales"),
-            User(id="u-rep2", name="Rep Two", email="r2@example.com",
-                 password_hash="x", role="sales"),
-        ])
+        session.add_all(
+            [
+                User(
+                    id="u-rep1",
+                    name="Rep One",
+                    email="r1@example.com",
+                    password_hash="x",
+                    role="sales",
+                ),
+                User(
+                    id="u-rep2",
+                    name="Rep Two",
+                    email="r2@example.com",
+                    password_hash="x",
+                    role="sales",
+                ),
+            ]
+        )
         await session.commit()
 
 

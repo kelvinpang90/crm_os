@@ -8,8 +8,8 @@ from app.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.activity import ActivityCreate
 from app.schemas.deal import DealCreate, DealUpdate
-from app.services import access_service, deal_service, activity_service
-from app.utils.response import ok, fail
+from app.services import access_service, activity_service, deal_service
+from app.utils.response import fail, ok
 
 router = APIRouter()
 
@@ -89,6 +89,7 @@ async def delete_deal(
 
 # --- Activity routes ---
 
+
 @router.get("/{deal_id}/activities")
 async def list_deal_activities(
     deal_id: str,
@@ -114,7 +115,13 @@ async def create_deal_activity(
     if not deal:
         return _not_found()
     activity = await activity_service.create_activity(
-        db, deal["contact_id"], deal_id, current_user.id, body.type, body.content, body.follow_date,
+        db,
+        deal["contact_id"],
+        deal_id,
+        current_user.id,
+        body.type,
+        body.content,
+        body.follow_date,
     )
     await db.commit()
     return ok(data=activity, message="Follow-up activity recorded", status_code=201)

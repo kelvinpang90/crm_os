@@ -6,8 +6,8 @@ sending. Gracefully degrades when credentials are not configured.
 
 import hashlib
 import hmac
-import uuid
 import logging
+import uuid
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -16,8 +16,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.models.message import Message
 from app.models.contact import Contact
+from app.models.message import Message
 from app.services import routing_service
 
 logger = logging.getLogger(__name__)
@@ -139,7 +139,9 @@ def _extract_body(msg: dict) -> str:
     return f"[unsupported: {mtype}]"
 
 
-async def _handle_message(db: AsyncSession, msg: dict, is_gateway: bool = False) -> Optional[Message]:
+async def _handle_message(
+    db: AsyncSession, msg: dict, is_gateway: bool = False
+) -> Optional[Message]:
     phone = msg.get("from", "")
     external_id = msg.get("id")
     if not phone or not external_id:
@@ -149,9 +151,7 @@ async def _handle_message(db: AsyncSession, msg: dict, is_gateway: bool = False)
     body = _extract_body(msg)
 
     # Dedup
-    existing = await db.execute(
-        select(Message).where(Message.external_id == external_id)
-    )
+    existing = await db.execute(select(Message).where(Message.external_id == external_id))
     if existing.scalar_one_or_none():
         return None
 
@@ -178,6 +178,7 @@ async def _handle_message(db: AsyncSession, msg: dict, is_gateway: bool = False)
             contact.assigned_to = assigned
             await db.flush()
         from app.models.deal import Deal
+
         deal = Deal(
             id=str(uuid.uuid4()),
             contact_id=contact.id,
@@ -220,12 +221,16 @@ def _handle_status(status: dict) -> None:
         errors = status.get("errors", [])
         logger.error(
             "WhatsApp status=failed external_id=%s recipient=%s errors=%s",
-            ext_id, recipient, errors,
+            ext_id,
+            recipient,
+            errors,
         )
     else:
         logger.info(
             "WhatsApp status=%s external_id=%s recipient=%s",
-            s, ext_id, recipient,
+            s,
+            ext_id,
+            recipient,
         )
 
 
@@ -313,7 +318,8 @@ async def send_message(db: AsyncSession, contact_id: str, text: str) -> dict:
         if resp.status_code != 200:
             logger.error(
                 "WhatsApp gateway send failed status=%s body=%s",
-                resp.status_code, resp.text,
+                resp.status_code,
+                resp.text,
             )
             raise WhatsAppSendError("api_error", f"HTTP {resp.status_code}: {resp.text}")
     else:
@@ -337,7 +343,8 @@ async def send_message(db: AsyncSession, contact_id: str, text: str) -> dict:
             if resp.status_code != 200:
                 logger.error(
                     "WhatsApp send failed status=%s body=%s",
-                    resp.status_code, resp.text,
+                    resp.status_code,
+                    resp.text,
                 )
                 raise WhatsAppSendError("api_error", f"HTTP {resp.status_code}: {resp.text}")
 

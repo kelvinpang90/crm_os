@@ -6,15 +6,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
-from app.schemas.auth import LoginRequest, RefreshRequest, TokenResponse
+from app.schemas.auth import LoginRequest, RefreshRequest
 from app.schemas.user import UserResponse
 from app.services.auth_service import (
     authenticate_user,
     generate_tokens,
-    refresh_access_token,
     logout,
+    refresh_access_token,
 )
-from app.utils.response import ok, fail
+from app.utils.response import fail, ok
 
 router = APIRouter()
 

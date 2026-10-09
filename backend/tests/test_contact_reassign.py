@@ -14,27 +14,42 @@ from app.models.user import User
 from app.services import contact_service
 
 _ADMIN = User(
-    id="u-admin", name="Admin", email="admin@example.com",
-    password_hash="x", role="admin",
+    id="u-admin",
+    name="Admin",
+    email="admin@example.com",
+    password_hash="x",
+    role="admin",
 )
 
 
 def _message(msg_id: str, direction: str, owner: str) -> Message:
     return Message(
-        id=msg_id, contact_id="c1", channel="whatsapp", direction=direction,
-        sender_id="60111111111", recipient_id="crm", body="…", assigned_to=owner,
+        id=msg_id,
+        contact_id="c1",
+        channel="whatsapp",
+        direction=direction,
+        sender_id="60111111111",
+        recipient_id="crm",
+        body="…",
+        assigned_to=owner,
     )
 
 
 async def test_reassign_transfers_message_history(async_session_maker):
     async with async_session_maker() as session:
-        session.add_all([
-            User(id="u-old", name="Old", email="old@example.com", password_hash="x", role="sales"),
-            User(id="u-new", name="New", email="new@example.com", password_hash="x", role="sales"),
-            Contact(id="c1", name="Acme Sdn Bhd", phone="60111111111", assigned_to="u-old"),
-            _message("m1", "inbound", "u-old"),
-            _message("m2", "outbound", "u-old"),
-        ])
+        session.add_all(
+            [
+                User(
+                    id="u-old", name="Old", email="old@example.com", password_hash="x", role="sales"
+                ),
+                User(
+                    id="u-new", name="New", email="new@example.com", password_hash="x", role="sales"
+                ),
+                Contact(id="c1", name="Acme Sdn Bhd", phone="60111111111", assigned_to="u-old"),
+                _message("m1", "inbound", "u-old"),
+                _message("m2", "outbound", "u-old"),
+            ]
+        )
         await session.commit()
 
     async with async_session_maker() as session:
@@ -43,12 +58,16 @@ async def test_reassign_transfers_message_history(async_session_maker):
 
     async with async_session_maker() as session:
         owners = (
-            await session.execute(
-                select(Message.assigned_to)
-                .where(Message.contact_id == "c1")
-                .order_by(Message.id)
+            (
+                await session.execute(
+                    select(Message.assigned_to)
+                    .where(Message.contact_id == "c1")
+                    .order_by(Message.id)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
     assert owners == ["u-new", "u-new"]
 
@@ -56,11 +75,15 @@ async def test_reassign_transfers_message_history(async_session_maker):
 async def test_unrelated_update_leaves_history_alone(async_session_maker):
     """Only a change of owner should touch messages — editing other fields must not."""
     async with async_session_maker() as session:
-        session.add_all([
-            User(id="u-old", name="Old", email="old@example.com", password_hash="x", role="sales"),
-            Contact(id="c1", name="Acme Sdn Bhd", phone="60111111111", assigned_to="u-old"),
-            _message("m1", "inbound", "u-old"),
-        ])
+        session.add_all(
+            [
+                User(
+                    id="u-old", name="Old", email="old@example.com", password_hash="x", role="sales"
+                ),
+                Contact(id="c1", name="Acme Sdn Bhd", phone="60111111111", assigned_to="u-old"),
+                _message("m1", "inbound", "u-old"),
+            ]
+        )
         await session.commit()
 
     async with async_session_maker() as session:

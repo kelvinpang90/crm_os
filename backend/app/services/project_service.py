@@ -3,15 +3,16 @@
 Returns plain dicts shaped to match the frontend `Project` type
 (services/projects.ts): field `last_updated_at` maps to the DB `updated_at`.
 """
+
 import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import select, delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.project import Project, ProjectStepHistory
 from app.data.project_seed import build_seed_rows, photos_for
+from app.models.project import Project, ProjectStepHistory
 
 MIN_STEP = 1
 MAX_STEP = 12
@@ -20,6 +21,7 @@ MAX_STEP = 12
 # ---------------------------------------------------------------------------
 # Queries
 # ---------------------------------------------------------------------------
+
 
 async def list_projects(db: AsyncSession) -> list[dict]:
     result = await db.execute(
@@ -53,6 +55,7 @@ async def get_project(db: AsyncSession, project_id: str) -> Optional[dict]:
 # ---------------------------------------------------------------------------
 # Mutations
 # ---------------------------------------------------------------------------
+
 
 async def create_project(db: AsyncSession, data: dict) -> dict:
     now = datetime.utcnow()
@@ -156,6 +159,7 @@ async def advance_step(
 # Demo seeding
 # ---------------------------------------------------------------------------
 
+
 async def seed_demo(db: AsyncSession) -> int:
     """Reset both tables and reseed the demo projects relative to now.
 
@@ -177,6 +181,7 @@ async def seed_demo(db: AsyncSession) -> int:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 async def _get(db: AsyncSession, project_id: str) -> Optional[Project]:
     result = await db.execute(

@@ -6,9 +6,9 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.deal import Deal
 from app.models.activity import Activity
 from app.models.contact import Contact
+from app.models.deal import Deal
 from app.models.user import User
 from app.utils.demo_scope import deal_not_demo
 
@@ -55,9 +55,7 @@ async def list_deals(
 
 
 async def get_deal(db: AsyncSession, deal_id: str) -> Optional[dict]:
-    result = await db.execute(
-        select(Deal).where(Deal.id == deal_id, Deal.deleted_at.is_(None))
-    )
+    result = await db.execute(select(Deal).where(Deal.id == deal_id, Deal.deleted_at.is_(None)))
     deal = result.scalar_one_or_none()
     if not deal:
         return None
@@ -70,9 +68,7 @@ async def update_deal(
     data: dict,
     updater_id: str,
 ) -> Optional[dict]:
-    result = await db.execute(
-        select(Deal).where(Deal.id == deal_id, Deal.deleted_at.is_(None))
-    )
+    result = await db.execute(select(Deal).where(Deal.id == deal_id, Deal.deleted_at.is_(None)))
     deal = result.scalar_one_or_none()
     if not deal:
         return None
@@ -109,9 +105,7 @@ async def update_deal(
 
 
 async def delete_deal(db: AsyncSession, deal_id: str) -> bool:
-    result = await db.execute(
-        select(Deal).where(Deal.id == deal_id, Deal.deleted_at.is_(None))
-    )
+    result = await db.execute(select(Deal).where(Deal.id == deal_id, Deal.deleted_at.is_(None)))
     deal = result.scalar_one_or_none()
     if not deal:
         return False
@@ -132,6 +126,7 @@ async def cascade_delete_by_contact(db: AsyncSession, contact_id: str) -> None:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 async def _scope_conditions(db: AsyncSession, current_user: User) -> list:
     if current_user.role == "sales":

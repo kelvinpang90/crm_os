@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import String, Integer, DateTime, Index, JSON, Text
+from sqlalchemy import JSON, DateTime, Index, Integer, String, Text
 from sqlalchemy.dialects import mysql
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -19,9 +19,7 @@ class Project(Base):
 
     __tablename__ = "projects"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     customer_name: Mapped[str] = mapped_column(String(200), nullable=False)
     address: Mapped[str] = mapped_column(String(300), nullable=False, default="")
     service_type: Mapped[str] = mapped_column(String(100), nullable=False, default="")
@@ -35,9 +33,7 @@ class Project(Base):
     signature_data: Mapped[str | None] = mapped_column(_LongText, nullable=True)
     signed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, default=datetime.utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )
@@ -53,18 +49,12 @@ class ProjectStepHistory(Base):
 
     __tablename__ = "project_step_history"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     project_id: Mapped[str] = mapped_column(String(36), nullable=False)
     step_no: Mapped[int] = mapped_column(Integer, nullable=False)
-    entered_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, default=datetime.utcnow
-    )
+    entered_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_by: Mapped[str] = mapped_column(String(100), nullable=False, default="")
     note: Mapped[str | None] = mapped_column(String(500), nullable=True)
     photos: Mapped[list | None] = mapped_column(JSON, nullable=True)
 
-    __table_args__ = (
-        Index("idx_step_project_id", "project_id"),
-    )
+    __table_args__ = (Index("idx_step_project_id", "project_id"),)
