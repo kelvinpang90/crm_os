@@ -1,0 +1,89 @@
+# CI —— 每个 PR 与每次合并都跑。job 名（backend、frontend）要与 .platform/project.yaml 的
+# required_status_checks 一致，并在 GitHub 分支保护里设为必需检查。写法参照 acuven-shop 的 ci.yml。
+#
+# OpenClaw 的 Worker 要等 PR 的 CI 全绿才把 run 交给人批准，所以这里是准入的依据：
+# - .platform/commands.yaml 里的每条检查，这里都以逐字相同的参数、从仓库根运行；
+# - Worker 沙箱里跑不了的检查（asyncio 的 pytest、前端 node 检查）只放这里。
+# 不设 paths / paths-ignore：只改 .platform/tasks.yaml 与计划文件的收尾 PR 也必须跑出必需检查的结果。
+name: CI
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # 与 backend/Dockerfile 的基础镜像一致。
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+
+      - name: Install backend and dev tooling
+        run: python -m pip install --disable-pip-version-check -r backend/requirements-dev.txt
+
+      # 这两条与 .platform/commands.yaml 的 lint.check / format.check 参数逐字相同，从仓库根运行。
+      - name: Lint (lint.check)
+        run: python -I -m ruff check .
+
+      - name: Format (format.check)
+        run: python -I -m ruff format --check .
+
+      # 测试用 httpx AsyncClient（asyncio），Worker 沙箱里跑不了，只在这里跑。
+      # 在 backend/ 下运行：pytest.ini 与 app 包都在那里。
+      - name: Tests
+        working-directory: backend
+        run: python -m pytest
+
+      - name: Deploy script lint
+        run: shellcheck deploy/deploy.sh
+
+      # compose 文件可解析；这两个值只为让必填变量有值，不是任何真实镜像。.env 在服务器上，这里放一个空的。
+      - name: Compose file resolves
+        env:
+          CRM_BACKEND_IMAGE: ci/crm_os-backend:ci
+          CRM_FRONTEND_IMAGE: ci/crm_os-frontend:ci
+        run: |
+          touch .env
+          docker compose config --quiet
+
+  frontend:
+    name: frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # 与 frontend/Dockerfile 的构建镜像同一个大版本。
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # npm ci：锁文件与 package.json 对不上就直接失败，不会顺手改锁文件。
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      # build = tsc -b（类型检查）+ vite build。
+      - name: Build
+        run: npm run build
