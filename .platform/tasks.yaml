@@ -49,8 +49,7 @@ tasks:
     status: ready
     depends_on: []
     acceptance_criteria:
-      - 新建客户时请求里带了 assigned_to 且 access_service.may_assign_to 判为否，返回与编辑客户越权时相同的 403 响应（FORBIDDEN），不创建客户
-      - 新建客户时不带 assigned_to 的行为不变（仍按现有逻辑落到当前用户或路由分派）；带了且有权分派的照常创建
+      - 新建客户时请求里带了 assigned_to 且 access_service.may_assign_to 判为否，返回与编辑客户越权时相同的 403 响应（FORBIDDEN），不创建客户；不带 assigned_to、或带了且有权分派时行为不变
       - 表格导入里某行的 assigned_to_email 指向导入人无权分派的账号时，该行不导入，并记一条与「账号不存在或已停用」相同字段、相同文案的行错误（不暴露该账号是否存在）；其他行照常导入
       - 表格导入里 assigned_to_email 为空、或指向导入人有权分派的账号时，行为不变；auto_assign 与按策略分派的行为不变
       - 新增测试覆盖：销售给别人建客户被拒、销售给自己建客户成功、经理给本团队成员建客户成功、经理给团队外的人建客户被拒、管理员给任何人建客户成功；导入时越权行被拒且其他行照常导入；每条测试写明守住的是哪一条验收标准
