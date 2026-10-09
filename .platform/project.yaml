@@ -1,0 +1,60 @@
+# 控制契约 —— 项目事实与角色绑定（OpenClaw 读这份文件决定「这个仓库同不同意被调度」）
+# 写法照 acuven-shop 的 .platform/project.yaml；格式以控制面仓库 docs/ONBOARD-PROJECT.md 为准。
+#
+# 只描述「谁能做什么」，不描述业务。Worker 启动前读它；读不到、解析失败、身份对不上、
+# 或 execution 两行不是下面写的值，一律不调度（fail closed）。
+#
+# ⚠️ 本仓库是公开仓库：这里不写本机路径、主机名、IP、密钥。
+#    本机信息（可执行程序路径、凭据）只在 Worker 主机的本地配置里，不进仓库。
+
+# ── Worker 机读字段 ────────────────────────────────────────────────────────────
+# 必须是整数 1；别的值整份契约作废。
+schema_version: 1
+# 与控制面登记表里的 project_id 逐字相同：^[a-z][a-z0-9_]{1,30}$。
+project_id: crm_os
+
+# 合并之后由谁来判「这次到底上没上生产」（OpenClaw 部署观察契约 D1–D5）。
+# 写的是 .github/workflows/ 下工作流的文件名；写了这一行 = 承诺那个工作流满足 D1–D5（见 deploy.yml 顶部）。
+# 控制面从 run 的 base commit 读这一行，一个 run 改不掉判自己的规则；这一行只能由运营者的 PR 改。
+deploy_workflow: deploy.yml
+
+execution:
+  # ⚠️ 下面两行是业务仓库这一侧的同意：本仓库同意被 OpenClaw 的 Windows Worker 调度。
+  #    同意本身不会让任何东西执行：还要控制面登记表登记并分配、Worker 主机本地配置就位、预检通过、Kelvin 批准。
+  #    出事时把 worker_enabled 改回 false 就是回滚。
+  execution_worker: windows-native
+  worker_enabled: true
+  control_plane: openclaw
+
+# ── 人读记录（Worker 不读，接入复审时核对）──────────────────────────────────────
+# 仓库事实：来自 git remote 与 GitHub 设置。GitHub 上改了保护规则要回来同步这里。
+repository:
+  host: github.com
+  slug: kelvinpang90/crm_os
+  default_branch: master
+  merge_method: squash
+  protected_branches:
+    - name: master
+      allow_direct_push: false
+      allow_force_push: false
+      require_pull_request: true
+      # 与 .github/workflows/ci.yml 的 job 名一一对应；在 GitHub 分支保护里设为必需检查。
+      required_status_checks:
+        - backend
+        - frontend
+
+roles:
+  development_owner: claude_code
+  # 2026-10-09 Kelvin：实现与独立审查都用 Claude Code（不配 Codex）。
+  independent_reviewer: claude_code
+  # Worker 的 PR 由 Kelvin 在 Telegram「批准」后合并。
+  merge_owner: kelvin
+
+# 默认拒绝：未在 commands.yaml / tasks.yaml 里列出的东西一律不可执行、不可调度。
+defaults:
+  command_policy: deny
+  task_policy: deny
+
+contract_files:
+  commands: .platform/commands.yaml
+  tasks: .platform/tasks.yaml

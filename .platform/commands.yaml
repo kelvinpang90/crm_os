@@ -1,0 +1,66 @@
+# 控制契约 —— Worker 可执行命令的 allowlist
+# 写法照 acuven-shop 的 .platform/commands.yaml；格式以控制面仓库 docs/ONBOARD-PROJECT.md 为准。
+#
+# 默认 deny：这里没有的命令一律不可执行。任务只能按 id 引用这里的命令，
+# 不能追加参数、不能改工作目录、不能注入环境变量。
+#
+# Worker 在 MXC 沙箱里跑这些命令：环境变量清空、network: false 时禁止出站网络、沙箱里没有真实 Git；
+# 可执行程序在 Worker 主机上固定成绝对路径，所以 executable 只写程序名。
+#
+# ⚠️ 只在 CI 跑、不列在这里的检查：
+#    - 后端 pytest：测试用 httpx AsyncClient（asyncio），沙箱禁回环会挂住；由 CI 的 backend job 执行。
+#    - 前端 npm ci / build（tsc -b + vite）：MXC 里跑 node 要控制面代码授权；由 CI 的 frontend job 执行。
+#    Worker 本来就要等 PR 的必需 CI 检查全绿才进入「等待批准」。
+#
+# 下面两条与 .github/workflows/ci.yml 的 backend job 逐字相同地运行，用 `-I` 隔离模式。
+# Worker 主机上固定的 python 要装好与 backend/requirements-dev.txt 同版本的 ruff；沙箱里不装依赖。
+
+# 必须是整数 1。
+schema_version: 1
+# 与 .platform/project.yaml 的 project_id 相同。
+project_id: crm_os
+# 必须是 deny。
+default: deny
+
+# 每条命令的字段（标 * 的由 Worker 机器校验）：
+#   id *             点分小写名，任务的 allowed_commands 按它引用，全文件唯一
+#   description      一句话说明（人读）
+#   executable *     程序名，不写路径
+#   args *           固定字面量字符串数组；不做模板替换、变量展开、通配符展开，不经 shell
+#   working_directory 只写 repository_root
+#   risk             只写 low
+#   timeout_seconds * 1–7200 的整数
+#   network *        布尔；false 在进程边界上强制无出站网络
+#   writes *         none = 不写工作区任何文件；cache = 只写已被 .gitignore 忽略的缓存
+commands:
+  - id: lint.check
+    description: 后端 lint（ruff check，只报告不改写；规则见仓库根 ruff.toml）
+    executable: python
+    args: ["-I", "-m", "ruff", "check", "."]
+    working_directory: repository_root
+    risk: low
+    timeout_seconds: 300
+    network: false
+    writes: cache
+
+  - id: format.check
+    description: 后端格式检查（ruff format --check，只报告不改写）
+    executable: python
+    args: ["-I", "-m", "ruff", "format", "--check", "."]
+    working_directory: repository_root
+    risk: low
+    timeout_seconds: 300
+    network: false
+    writes: cache
+
+# 下面这些不是命令，是明确不得混进 allowlist 的动作类别，由人或 CI/CD 做。
+never_low_risk:
+  - create_or_update_pull_request
+  - dependency_install
+  - external_notification
+  - deployment
+  - database_migration
+  - delete_or_truncate
+  - service_restart
+  - credential_access_or_rotation
+  - security_configuration_change
