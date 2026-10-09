@@ -682,12 +682,15 @@ proxy_pass http://$crm_frontend;
       - 当前 IP：backend 172.18.0.5 / 172.19.0.10，frontend 172.19.0.7（与事故描述「前端拿到了后端旧 IP」吻合）。
       - demo：线上 `acuventech.com.conf:131` 起仍是 09-16 的下线注释，与 §6 结论一致。access 日志格式不记 Host，
         无法按域名统计 444，这点没法从日志再佐证。
+- [ ] **1–3 被会话权限拦下（2026-10-09）**：改好的线上文件已在本地准备并核对 diff（upstream 加 `zone` + `resolve`，
+      crm.kelvinpeng.com 的 `location /` 改用 `$crm_frontend_kp`），但对 VPS 的写操作（scp、备份、替换、reload）
+      被自动权限分类器拦截，等 Kelvin 放行或亲自执行
 - [ ] **1. 备份**：`cp <文件> <文件>.bak-20261009`
 - [ ] **2. 改 VPS 上的 CRM 配置**：按 (b′)（或 (b)）修改；`docker exec infra_nginx nginx -t` 通过后 `nginx -s reload`
 - [ ] **3. 验证根治**（不是只看 200）：两个域名 `/`、`/api/health` 200 →
       在 VPS 上 `docker compose -f /opt/crm_os/docker-compose.yml up -d --force-recreate backend frontend`（**不 reload nginx**）→
       等 10–15s 再测两个域名都 200，并看 `docker inspect` 确认 IP 确实变了
-- [ ] **4. crm_os 仓库**：`nginx/conf.d/crm.conf` 改成与线上一致的写法，修正头部注释说明真实来源；deploy.yml 里那段
+- [x] **4. crm_os 仓库**（已在本地提交，**未推送**：推送会触发部署，必须等线上 nginx 改完再推）：`nginx/conf.d/crm.conf` 改成与线上一致的写法，修正头部注释说明真实来源；deploy.yml 里那段
       「手动同步 nginx」的注释按步骤 0 结论更新
 - [ ] **5. 推送 + 观察 Deploy CRM**：部署结束后两个域名仍 200、nginx 日志无新 `connect() failed`
 

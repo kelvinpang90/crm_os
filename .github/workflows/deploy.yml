@@ -77,9 +77,9 @@ jobs:
             docker compose pull
             docker compose up -d --remove-orphans
             docker compose exec -T backend alembic upgrade head
-            # Nginx runs in /srv/infra (shared infra), not in this compose project.
-            # When nginx/conf.d/crm.conf changes, sync it manually:
-            #   sudo cp /opt/crm_os/nginx/conf.d/crm.conf /srv/infra/nginx/conf.d/crm.conf
-            #   sudo docker exec infra_nginx nginx -t && sudo docker exec infra_nginx nginx -s reload
+            # Nginx runs in /srv/infra (shared infra), not in this compose project, and
+            # re-resolves the CRM container names itself, so no reload is needed here.
+            # The live CRM vhosts are in /srv/infra/nginx/conf.d/{kelvinpeng,acuventech}.com.conf;
+            # nginx/conf.d/crm.conf is a reference copy only (see its header).
             docker logout ghcr.io
             docker image prune -f
