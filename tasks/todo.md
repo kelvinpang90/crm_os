@@ -593,7 +593,7 @@ WHERE d.deleted_at IS NULL AND NOT (d.assigned_to <=> c.assigned_to);
 
 ---
 
-# 任务四：部署后 nginx 仍指向旧容器 IP 导致全站 502（✅ 已批准 b′；步骤 0 已核实，步骤 1 起待执行）
+# 任务四：部署后 nginx 仍指向旧容器 IP 导致全站 502（✅ 已批准 b′；线上已改，2026-10-09）
 
 > 提出时间：2026-10-09
 > 现象：部署 `f49e3e5` 时，Deploy CRM 只做了 `docker compose up -d --remove-orphans`，容器重建后 IP 对调
@@ -682,12 +682,15 @@ proxy_pass http://$crm_frontend;
       - 当前 IP：backend 172.18.0.5 / 172.19.0.10，frontend 172.19.0.7（与事故描述「前端拿到了后端旧 IP」吻合）。
       - demo：线上 `acuventech.com.conf:131` 起仍是 09-16 的下线注释，与 §6 结论一致。access 日志格式不记 Host，
         无法按域名统计 444，这点没法从日志再佐证。
-- [ ] **1–3 被会话权限拦下（2026-10-09）**：改好的线上文件已在本地准备并核对 diff（upstream 加 `zone` + `resolve`，
-      crm.kelvinpeng.com 的 `location /` 改用 `$crm_frontend_kp`），但对 VPS 的写操作（scp、备份、替换、reload）
-      被自动权限分类器拦截，等 Kelvin 放行或亲自执行
-- [ ] **1. 备份**：`cp <文件> <文件>.bak-20261009`
-- [ ] **2. 改 VPS 上的 CRM 配置**：按 (b′)（或 (b)）修改；`docker exec infra_nginx nginx -t` 通过后 `nginx -s reload`
-- [ ] **3. 验证根治**（不是只看 200）：两个域名 `/`、`/api/health` 200 →
+- [x] **1–3 于 2026-10-09 20:25 执行**（Kelvin 放行后）：备份为 `conf.d/bak/kelvinpeng.com.conf.bak-20261009-resolve`；
+      `nginx -t` 通过后 reload；两个域名 `/`、`/api/health` 全 200，reload 后 nginx 无 emerg/error/warn；
+      `nginx -T` 确认 `zone crm_backend` / `resolve` / `$crm_frontend_kp` 已加载。
+      **根治验证只做了一半**：`up -d --force-recreate frontend backend` 后 Docker 把**原 IP 原样还回来了**（backend 172.19.0.10、
+      frontend 172.19.0.7 不变），所以这次重建没有证明「IP 变了也能自愈」。想用临时占位容器占住旧 IP、逼新容器换 IP，
+      这一步被会话权限拦下，没有做。
+- [x] **1. 备份**：`cp <文件> <文件>.bak-20261009`
+- [x] **2. 改 VPS 上的 CRM 配置**：按 (b′)（或 (b)）修改；`docker exec infra_nginx nginx -t` 通过后 `nginx -s reload`
+- [~] **3. 验证根治**（见上：IP 没变，未能证实）（不是只看 200）：两个域名 `/`、`/api/health` 200 →
       在 VPS 上 `docker compose -f /opt/crm_os/docker-compose.yml up -d --force-recreate backend frontend`（**不 reload nginx**）→
       等 10–15s 再测两个域名都 200，并看 `docker inspect` 确认 IP 确实变了
 - [x] **4. crm_os 仓库**（已在本地提交，**未推送**：推送会触发部署，必须等线上 nginx 改完再推）：`nginx/conf.d/crm.conf` 改成与线上一致的写法，修正头部注释说明真实来源；deploy.yml 里那段
