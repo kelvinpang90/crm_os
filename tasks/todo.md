@@ -593,7 +593,7 @@ WHERE d.deleted_at IS NULL AND NOT (d.assigned_to <=> c.assigned_to);
 
 ---
 
-# 任务四：部署后 nginx 仍指向旧容器 IP 导致全站 502（📝 方案待 Kelvin 批准，未改任何东西）
+# 任务四：部署后 nginx 仍指向旧容器 IP 导致全站 502（✅ 已批准 b′；步骤 0 已核实，步骤 1 起待执行）
 
 > 提出时间：2026-10-09
 > 现象：部署 `f49e3e5` 时，Deploy CRM 只做了 `docker compose up -d --remove-orphans`，容器重建后 IP 对调
@@ -669,8 +669,19 @@ proxy_pass http://$crm_frontend;
 
 ## 4. 实施步骤（批准后执行，每步都要 Kelvin 放行对生产机的 ssh）
 
-- [ ] **0. VPS 只读核实**：`ls -la /srv/infra/nginx/conf.d/`；`grep -rn "crm_backend\|crm_os-" /srv/infra/nginx/conf.d/`
+- [x] **0. VPS 只读核实**：`ls -la /srv/infra/nginx/conf.d/`；`grep -rn "crm_backend\|crm_os-" /srv/infra/nginx/conf.d/`
       确认 CRM 配置在哪个文件、有没有重复；`docker exec infra_nginx nginx -v`；`docker exec infra_nginx nginx -T | grep -n resolver`
+      **结果（2026-10-09，Kelvin 批准 b′ 后执行）**：
+      - 线上 conf.d 只有 `acuventech.com.conf`、`kelvinpeng.com.conf`、`mcinter…`、`ta-cba…` 和一个 `bak/` 目录，**没有 crm.conf**。
+        `crm_os/nginx/conf.d/crm.conf` 从来不是线上生效的文件，头部注释是错的。
+      - `upstream crm_backend` 只定义一次，在 `kelvinpeng.com.conf:18`；`acuventech.com.conf` 的 crm.acuventech.com 跨文件引用它
+        （http 级共享，合法）。所以**只改 kelvinpeng.com.conf 一个文件**就同时修好两个域名的后端；
+        前端写死的只有 `kelvinpeng.com.conf:292`。
+      - `kelvinpeng.com.conf` 线上 mtime 2026-06-22、8231 字节，和本地快照一致。
+      - nginx **1.29.8**（≥ 1.27.3，b′ 可用）；`nginx -T` 里 http 级 `resolver 127.0.0.11 valid=10s ipv6=off` 生效；当前 `nginx -t` 通过。
+      - 当前 IP：backend 172.18.0.5 / 172.19.0.10，frontend 172.19.0.7（与事故描述「前端拿到了后端旧 IP」吻合）。
+      - demo：线上 `acuventech.com.conf:131` 起仍是 09-16 的下线注释，与 §6 结论一致。access 日志格式不记 Host，
+        无法按域名统计 444，这点没法从日志再佐证。
 - [ ] **1. 备份**：`cp <文件> <文件>.bak-20261009`
 - [ ] **2. 改 VPS 上的 CRM 配置**：按 (b′)（或 (b)）修改；`docker exec infra_nginx nginx -t` 通过后 `nginx -s reload`
 - [ ] **3. 验证根治**（不是只看 200）：两个域名 `/`、`/api/health` 200 →
