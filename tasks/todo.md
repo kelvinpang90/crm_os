@@ -734,7 +734,7 @@ proxy_pass http://$crm_frontend;
 
 ---
 
-# 任务五：部署改成按提交 SHA（规划中，待批准）
+# 任务五：部署改成按提交 SHA（进行中：代码已提交到分支 `feat/deploy-by-sha`，未推送；等 GitHub 配置）
 
 依据：`acuven_hub/DECISIONS.md` I-07——`crm_os` 改成按提交 SHA 部署后，才登记进 OpenClaw。
 目标：`deploy.yml` 满足模板的部署观察契约 D1–D5（`acuven-project-template/TEMPLATE-GUIDE.md`）。
@@ -752,10 +752,11 @@ proxy_pass http://$crm_frontend;
 
 ## 2. 实施拆分（每步 ≤3 个文件）
 
-- [ ] **步骤 0 · VPS 只读核对**（需要你放行 ssh）：`git status`、`git log -1`、`docker compose ps`。
-- [ ] **步骤 1 · 健康检查报版本**（2 个文件）：`backend/Dockerfile` 加 `ARG GIT_SHA` → `ENV`；
+- [x] **步骤 0 · VPS 只读核对**（2026-10-09）：`/opt/crm_os` 在 master `35cc857`，只有两个未跟踪的 `.env.bak.*`，
+      不会挡 checkout；容器 `crm_os-backend-1` / `crm_os-frontend-1`，都跑 `:latest`；`.env` 里没有 `CRM_*_IMAGE`。
+- [x] **步骤 1 · 健康检查报版本**（`6755c7e`；新测试 `test_health.py` 2 红 → 绿，全量 152 通过，本地 Docker 跑）（2 个文件）：`backend/Dockerfile` 加 `ARG GIT_SHA` → `ENV`；
       `/api/health` 多返回 `git_sha`。先写测试（红→绿）。这一步仍走旧流程上线，无风险。
-- [ ] **步骤 2 · 新部署流程**（3 个文件）：
+- [x] **步骤 2 · 新部署流程**（`2a5d989`；compose 插值、前端 healthcheck 已在本地验证；去掉了原来的 `paths` 过滤，满足 D1）（3 个文件）：
   - `docker-compose.yml`：镜像改为 `${CRM_BACKEND_IMAGE:?}` / `${CRM_FRONTEND_IMAGE:?}`，服务名不变；
     加 healthcheck（backend 用 python 打 `/api/health`，frontend 用 wget）。
   - 新增 `deploy/deploy.sh`：记下正在跑的版本 → pull → `run --rm` 跑迁移 → `up -d` → 等健康 →
@@ -763,11 +764,11 @@ proxy_pass http://$crm_frontend;
   - `deploy.yml`：只由 master 触发；`workflow_dispatch` 填 40 位 SHA 用于回滚；`concurrency` 不取消；
     两个 job 各 12 分钟；校验主机指纹；参数经 `envs` 传；部署后健康检查必须看到 `DEPLOY_SHA`；
     构建时传 `GIT_SHA`、打 `acuven.project=crm_os` 标签；**不再推 `latest`**。
-- [ ] **步骤 3 · GitHub 配置**：secrets `VPS_FINGERPRINT`、`VPS_APP_DIR=/opt/crm_os`；
+- [ ] **步骤 3 · GitHub 配置**（2026-10-09 核对：仓库里**还没有**这三项）：secrets `VPS_FINGERPRINT`、`VPS_APP_DIR=/opt/crm_os`；
       变量 `HEALTHCHECK_URL=https://crm.acuventech.com/api/health`。
 - [ ] **步骤 4 · 上线验证**：合并后看第一次运行；线上 `/api/health` 返回合并的那个 SHA。
       可选：用 `workflow_dispatch` 填上一个 SHA 演练一次回滚。
-- [ ] **步骤 5 · 文档**：`DEPLOY.md` 第 3 节（部署、回滚）改成新流程。
+- [x] **步骤 5 · 文档**（`f397c4c`）：`DEPLOY.md` 第 3 节（部署、回滚）改成新流程。
 
 可选项（本次不做）：`paths-ignore`（`.platform/tasks.yaml` 等，等登记 OpenClaw 时一起做）；
 CI 测试工作流；`.platform/project.yaml`。
@@ -786,6 +787,6 @@ CI 测试工作流；`.platform/project.yaml`。
 
 ## 4. 需要 Kelvin 拍板
 
-- **Q1** 本地开发：镜像变量必填（像 shop，本地 `.env` 里加两行）还是给本地默认值？建议必填。
-- **Q2** 停止推 `latest` 标签？建议停，免得有人把 `latest` 当成线上版本。
+- **Q1** 本地开发：镜像变量必填（像 shop，本地 `.env` 里加两行）还是给本地默认值？→ **必填**（Kelvin，2026-10-09）
+- **Q2** 停止推 `latest` 标签？→ **不推**（Kelvin，2026-10-09）
 - **Q3** 步骤 3 的 secrets／变量：你在 GitHub 网页上设，还是授权我用 `gh` 设？主机指纹我可以先 `ssh-keyscan` 取出来给你比对。
