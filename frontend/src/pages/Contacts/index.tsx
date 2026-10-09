@@ -23,6 +23,8 @@ export default function ContactsPage() {
   const isMobile = useIsMobile();
   const user = useAuthStore((s) => s.user);
   const canArchive = user?.role === 'admin' || user?.role === 'manager';
+  // The sync route is admin/manager only.
+  const canSync = user?.role === 'admin' || user?.role === 'manager';
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [total, setTotal] = useState(0);
@@ -132,9 +134,11 @@ export default function ContactsPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={handleSync} disabled={syncing} className="btn-secondary text-sm">
-            {syncing ? t('syncing') : t('syncNow')}
-          </button>
+          {canSync && (
+            <button onClick={handleSync} disabled={syncing} className="btn-secondary text-sm">
+              {syncing ? t('syncing') : t('syncNow')}
+            </button>
+          )}
           <button onClick={() => navigate('/contacts/new')} className="btn-primary text-sm">
             + {t('newContact')}
           </button>
