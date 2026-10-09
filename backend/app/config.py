@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     # App
     app_env: str = "development"
     cors_origins: str = "http://localhost:5173"
+    # Commit the image was built from (baked in by CI); reported by /api/health
+    git_sha: str = "unknown"
 
     # WhatsApp
     whatsapp_phone_number_id: str = ""

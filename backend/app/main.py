@@ -62,4 +62,4 @@ app.include_router(internal_whatsapp.router, prefix="/internal/whatsapp", tags=[
 
 @app.get("/api/health")
 async def health_check():
-    return {"status": "ok", "service": "CRM API"}
+    return {"status": "ok", "service": "CRM API", "git_sha": settings.git_sha}

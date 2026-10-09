@@ -1,32 +1,68 @@
+# 部署到生产 —— OpenClaw 部署观察契约 D1–D5（acuven-project-template/TEMPLATE-GUIDE.md）。
+# 写法照搬 acuven-shop 的 deploy.yml，只改了镜像名、服务名与部署脚本的变量名。
+#
+#   D1 触发：由 push 到 master 触发，每次合并都产生一次以合并提交为 headSha 的 push 运行（因此不设 paths 过滤）。
+#            workflow_dispatch 保留给手工重部署 / 回滚，不计入观察。
+#   D2 对象：部署的正是触发它的那个提交（DEPLOY_SHA）：镜像以它为标签构建，服务器上
+#            `git checkout --detach` 到它再跑它自己的 deploy/deploy.sh，不 `git pull` 分支最新。
+#   D3 结论：只有新版本已上线、且上线后健康检查报出 DEPLOY_SHA 才以 success 结束；迁移失败、
+#            不健康、回滚（无论回滚是否成功）、中断都以失败结束。没有 continue-on-error。
+#   D4 并发：不取消进行中的部署（被取消的运行按失败处理）。
+#   D5 期限：两个 job 的 timeout-minutes 合计 24 分钟，30 分钟内给出结论；不用需要人工批准的 environment。
+#
+# 本文件不写主机名、IP、域名、路径、密钥：连接信息与部署目录放 GitHub secrets，
+# 健康检查地址放 repository variable HEALTHCHECK_URL。
 name: Deploy CRM
 
 on:
   push:
-    branches: [master, main]
-    paths:
-      - 'backend/**'
-      - 'frontend/**'
-      - 'nginx/**'
-      - 'docker-compose.yml'
-      - '.github/workflows/deploy.yml'
+    branches: [master]
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "要部署的完整 40 位 commit SHA（回滚时填上一个好的那个）"
+        required: true
 
+permissions:
+  contents: read
+
+# D4：不允许并发部署，也不取消正在跑的那个——取消到一半会把线上停在中间状态。
 concurrency:
-  group: deploy-${{ github.ref }}
+  group: deploy-production
   cancel-in-progress: false
 
 jobs:
   build:
+    name: build
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     permissions:
       contents: read
       packages: write
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+      image_repo: ${{ steps.resolve.outputs.image_repo }}
     steps:
-      - uses: actions/checkout@v4
+      # D2：先定下要部署的确切提交，后面所有步骤只用这一步的输出。
+      # 手工输入只经 env 进 shell（不直接 ${{ }} 拼进脚本，防注入），且只放行 40 位小写十六进制。
+      - name: Resolve the commit to deploy
+        id: resolve
+        env:
+          REF: ${{ inputs.ref || github.sha }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          if [[ ! "$REF" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::ref must be a full 40-character lowercase commit SHA"
+            exit 1
+          fi
+          echo "sha=$REF" >> "$GITHUB_OUTPUT"
+          # 镜像仓库名必须小写，而账号或仓库名可能带大写。
+          echo "image_repo=ghcr.io/${REPOSITORY,,}" >> "$GITHUB_OUTPUT"
 
-      - name: Set lowercase image owner
-        id: meta
-        run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.resolve.outputs.sha }}
 
       - uses: docker/setup-buildx-action@v3
 
@@ -36,50 +72,96 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & push backend
-        uses: docker/build-push-action@v5
+      # 镜像在这里构建，不在共享服务器上构建：那台机器还跑着别的项目。
+      # 只打 SHA 标签，不推 latest：免得有人把 latest 当成线上版本。
+      # GIT_SHA 进镜像，健康检查把它原样返回（最后一步据此确认线上版本）。
+      # acuven.project 标签让 deploy/deploy.sh 只清理本项目的旧镜像。
+      - name: Build and push the backend image
+        uses: docker/build-push-action@v6
         with:
           context: ./backend
           push: true
-          tags: |
-            ghcr.io/${{ steps.meta.outputs.owner }}/crm_os-backend:latest
-            ghcr.io/${{ steps.meta.outputs.owner }}/crm_os-backend:${{ github.sha }}
+          build-args: GIT_SHA=${{ steps.resolve.outputs.sha }}
+          labels: acuven.project=crm_os
+          tags: ${{ steps.resolve.outputs.image_repo }}-backend:${{ steps.resolve.outputs.sha }}
           cache-from: type=gha,scope=backend
           cache-to: type=gha,mode=max,scope=backend
 
-      - name: Build & push frontend
-        uses: docker/build-push-action@v5
+      - name: Build and push the frontend image
+        uses: docker/build-push-action@v6
         with:
           context: ./frontend
           push: true
-          tags: |
-            ghcr.io/${{ steps.meta.outputs.owner }}/crm_os-frontend:latest
-            ghcr.io/${{ steps.meta.outputs.owner }}/crm_os-frontend:${{ github.sha }}
+          labels: acuven.project=crm_os
+          tags: ${{ steps.resolve.outputs.image_repo }}-frontend:${{ steps.resolve.outputs.sha }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 
   deploy:
+    name: deploy
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      packages: read
     steps:
-      - name: SSH deploy
+      # 主机指纹没配就直接失败：ssh-action 的 fingerprint 留空时是静默跳过校验。
+      - name: Require the host fingerprint
+        env:
+          FINGERPRINT: ${{ secrets.VPS_FINGERPRINT }}
+        run: |
+          if [ -z "$FINGERPRINT" ]; then
+            echo "::error::VPS_FINGERPRINT is not set; refusing to SSH without verifying the host key"
+            exit 1
+          fi
+
+      # 所有值经 envs 传给远端脚本，不拼进脚本文本。
+      # 远端先检出 DEPLOY_SHA，再跑那个提交里的 deploy/deploy.sh（D2）；它失败即非零退出（D3）。
+      # infra_nginx 按容器名重新解析 CRM，不需要 reload。
+      - name: Deploy
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          DEPLOY_SHA: ${{ needs.build.outputs.sha }}
+          IMAGE_REPO: ${{ needs.build.outputs.image_repo }}
+          APP_DIR: ${{ secrets.VPS_APP_DIR }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
+          fingerprint: ${{ secrets.VPS_FINGERPRINT }}
+          envs: DEPLOY_SHA,IMAGE_REPO,APP_DIR,GHCR_USER,GHCR_TOKEN
           script: |
-            set -e
-            cd /opt/crm_os
-            git pull --ff-only
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker compose pull
-            docker compose up -d --remove-orphans
-            docker compose exec -T backend alembic upgrade head
-            # Nginx runs in /srv/infra (shared infra), not in this compose project, and
-            # re-resolves the CRM container names itself, so no reload is needed here.
-            # The live CRM vhosts are in /srv/infra/nginx/conf.d/{kelvinpeng,acuventech}.com.conf;
-            # nginx/conf.d/crm.conf is a reference copy only (see its header).
-            docker logout ghcr.io
-            docker image prune -f
+            set -euo pipefail
+            cd "$APP_DIR"
+            git fetch --quiet origin
+            git checkout --quiet --detach "$DEPLOY_SHA"
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            trap 'docker logout ghcr.io >/dev/null 2>&1' EXIT
+            CRM_IMAGE_REPO="$IMAGE_REPO" bash deploy/deploy.sh "$DEPLOY_SHA"
+
+      # D3：上线后健康检查。要求 HTTP 200，且响应里带着线上版本的 commit SHA——
+      # 这样「检查通过」同时证明了上线的就是 DEPLOY_SHA（D2），而不只是「服务活着」。
+      - name: Post-deploy health check
+        env:
+          DEPLOY_SHA: ${{ needs.build.outputs.sha }}
+          HEALTHCHECK_URL: ${{ vars.HEALTHCHECK_URL }}
+        shell: bash
+        run: |
+          if [ -z "$HEALTHCHECK_URL" ]; then
+            echo "::error::repository variable HEALTHCHECK_URL is not set"
+            exit 1
+          fi
+          for attempt in $(seq 1 30); do
+            body="$(curl --silent --show-error --fail --max-time 10 "$HEALTHCHECK_URL" || true)"
+            if [[ "$body" == *"$DEPLOY_SHA"* ]]; then
+              echo "healthy on attempt $attempt"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::health check did not report $DEPLOY_SHA within 5 minutes"
+          exit 1

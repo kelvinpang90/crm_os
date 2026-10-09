@@ -268,6 +268,10 @@ GitHub → 仓库 → Settings → Actions → General → Workflow permissions�
 | `VPS_USER` | `ubuntu`                                                         |
 | `VPS_SSH_KEY` | 在 VPS 上 `ssh-keygen -t ed25519 -f ~/.ssh/gha_deploy` 生成的**私钥**全文 |
 | `VPS_PORT` | SSH 端口（默认 22）                                                    |
+| `VPS_FINGERPRINT` | VPS 主机公钥的 SHA256 指纹（形如 `SHA256:...`）；和 acuven-shop 同一台机器，**照抄 acuven-shop 仓库里已经在用的那个值**。没设时部署直接失败 |
+| `VPS_APP_DIR` | `/opt/crm_os`                                                    |
+
+另在 Variables 页加 repository variable `HEALTHCHECK_URL` = `https://crm.acuventech.com/api/health`（部署后据此确认线上版本）。
 
 把 `~/.ssh/gha_deploy.pub` 内容追加到 VPS 的 `~/.ssh/authorized_keys`。
 
@@ -275,19 +279,20 @@ GitHub → 仓库 → Settings → Actions → General → Workflow permissions�
 
 仓库已有 `.github/workflows/deploy.yml`，要点：
 
-- **触发**：push 到 `master` / `main`，或在 Actions 页面手动 `workflow_dispatch`
-- **build job**：用 buildx + GHA 缓存构建 `backend` / `frontend` 两个镜像，打 `latest` + `<commit_sha>` 双 tag，推到 `ghcr.io/<owner>/crm_os-backend|frontend`
-- **deploy job**：通过 `appleboy/ssh-action` 进 VPS 跑：
+按提交 SHA 部署，满足 OpenClaw 部署观察契约 D1–D5（写法照搬 acuven-shop，细节见文件头注释）：
+
+- **触发**：每次 push 到 `master` 都部署那个提交（不按路径过滤）；Actions 页面手动 `workflow_dispatch` 时必须填完整 40 位 SHA，用于重部署或回滚
+- **build job**：构建 `backend` / `frontend` 两个镜像，**只打 `<commit_sha>` 标签**（不再推 `latest`），推到 `ghcr.io/<owner>/crm_os-backend|frontend`；构建时把 SHA 写进后端镜像
+- **deploy job**：通过 `appleboy/ssh-action`（校验主机指纹）进 VPS：
   ```
-  cd /opt/crm_os
-  git pull --ff-only
+  cd $VPS_APP_DIR
+  git fetch && git checkout --detach <DEPLOY_SHA>
   docker login ghcr.io（使用 GITHUB_TOKEN）
-  docker compose pull
-  docker compose up -d --remove-orphans
-  docker compose exec -T backend alembic upgrade head
-  docker image prune -f
+  CRM_IMAGE_REPO=ghcr.io/<owner>/crm_os bash deploy/deploy.sh <DEPLOY_SHA>
   ```
-- **并发控制**：同一分支同时只允许一个 deploy 跑，避免冲突
+  `deploy/deploy.sh`：记下正在跑的版本 → 拉新镜像 → 先跑迁移 → 换容器 → 等 healthcheck → 不健康就回滚到原版本并以失败结束 → 清理本项目旧镜像
+- **结论**：最后轮询 `HEALTHCHECK_URL`，响应里出现这次的 SHA 才算成功
+- **并发控制**：同时只允许一个部署，且不取消正在跑的那个
 
 > 如需改路径或加多环境（staging/prod），直接编辑 `.github/workflows/deploy.yml`。
 
@@ -309,12 +314,9 @@ echo <你的 GitHub PAT> | docker login ghcr.io -u kelvinpang90 --password-stdin
 # 触发一次 GHA 构建：本地 push 一个空提交
 # （在你本机仓库执行 git commit --allow-empty -m "trigger build" && git push）
 
-# 等 GHA 构建完成后，VPS 上拉镜像
-docker compose pull
-docker compose up -d
-
-# 跑数据库迁移
-docker compose exec backend alembic upgrade head
+# 等 GHA 构建完成后，VPS 上部署那个提交（<sha> 为完整 40 位）
+git checkout --detach <sha>
+CRM_IMAGE_REPO=ghcr.io/kelvinpang90/crm_os bash deploy/deploy.sh <sha>
 
 # 可选：写入种子数据
 docker compose exec backend python seed.py
@@ -324,7 +326,7 @@ docker compose exec backend python seed.py
 
 - 浏览器打开 `https://crm.kelvinpeng.com` → 看到登录页
 - 用种子账号登录 → 进入仪表盘
-- 检查 API：`curl https://crm.kelvinpeng.com/api/health`（如有健康检查接口）
+- 检查 API：`curl https://crm.kelvinpeng.com/api/health`，返回里的 `git_sha` 应是刚部署的提交
 
 ---
 
@@ -332,29 +334,34 @@ docker compose exec backend python seed.py
 
 ### 3.1 标准发布流程
 
-1. 本机改代码 → 提 PR → 合并到 `main`
-2. GHA 自动：
-   - 构建 backend / frontend 镜像并推 GHCR
-   - SSH 进 VPS：`git pull` → `docker compose pull` → `docker compose up -d` → `alembic upgrade head`
-3. backend 容器重启时会有 ~5-10 秒 502 短暂中断（单实例代价）；`docker compose pull` + `up -d` 仅在镜像变化时重建，不变则秒级 noop
+1. 本机改代码 → 提 PR → 合并到 `master`
+2. GHA 自动按 1.6.3 部署这个提交；Actions 里那次运行绿了，就表示线上 `/api/health` 已报出这个 SHA
+3. 运行失败时看日志：迁移失败则旧版本仍在跑；新版本不健康会自动回滚到部署前的版本（运行仍记为失败）
+4. backend 容器重启时会有 ~5-10 秒 502 短暂中断（单实例代价）
+
+> 服务器上的 `/opt/crm_os` 现在停在某个提交的 detached HEAD，**不要再在里面 `git pull`**。
+> `docker-compose.yml` 的镜像变量没有默认值，在服务器上直接跑 `docker compose ...`（ps、logs、restart）会报
+> `required variable CRM_BACKEND_IMAGE is missing`。先从正在跑的容器取出镜像名：
+> ```bash
+> export CRM_BACKEND_IMAGE=$(docker inspect -f '{{.Config.Image}}' crm_os-backend-1)
+> export CRM_FRONTEND_IMAGE=$(docker inspect -f '{{.Config.Image}}' crm_os-frontend-1)
+> ```
 
 ### 3.2 回滚
 
 ```bash
+# 首选：GitHub → Actions → Deploy CRM → Run workflow，ref 填上一个正常提交的完整 40 位 SHA。
+# 它和普通部署走同一条路（检出、迁移、换容器、健康检查）。
+# 本机找 SHA：git log --format='%H %s' -10
+```
+
+GitHub Actions 不可用时，在 VPS 上手工做同样的事：
+
+```bash
 ssh ubuntu@103.40.204.95
 cd /opt/crm_os
-
-# 找到上一次正常的 commit SHA
-git log --oneline -10
-
-# 回滚镜像 tag
-docker pull ghcr.io/kelvinpang90/crm_os-backend:<good-sha>
-docker pull ghcr.io/kelvinpang90/crm_os-frontend:<good-sha>
-
-# 临时改 docker-compose.yml 的 image tag 或用 docker tag 重打 latest
-docker tag ghcr.io/kelvinpang90/crm_os-backend:<good-sha> ghcr.io/kelvinpang90/crm_os-backend:latest
-docker tag ghcr.io/kelvinpang90/crm_os-frontend:<good-sha> ghcr.io/kelvinpang90/crm_os-frontend:latest
-docker compose up -d
+git fetch && git checkout --detach <good-sha>
+CRM_IMAGE_REPO=ghcr.io/kelvinpang90/crm_os bash deploy/deploy.sh <good-sha>
 ```
 
 > 数据库迁移回滚需手动 `alembic downgrade -1`，且仅适用于向后兼容的迁移。
@@ -370,8 +377,8 @@ docker compose up -d
 ### 3.4 日志查看
 
 ```bash
-docker compose logs -f --tail=200 backend
-docker compose logs -f frontend
+docker logs -f --tail=200 crm_os-backend-1
+docker logs -f crm_os-frontend-1
 ```
 
 ---
@@ -391,7 +398,7 @@ docker compose logs -f frontend
 
 ## 5. 后续接入 WhatsApp / Email 时
 
-只需在 VPS 的 `/opt/crm_os/.env` 填入对应字段后 `docker compose restart backend`，无需重新部署。WhatsApp Webhook 公网入口已通过 nginx `/api/webhooks/whatsapp` 暴露（HTTPS 已就绪）。
+只需在 VPS 的 `/opt/crm_os/.env` 填入对应字段，按 3.1 末尾先导出镜像变量，再 `docker compose up -d backend`（重建容器才会读到新的 `.env`），无需重新部署。WhatsApp Webhook 公网入口已通过 nginx `/api/webhooks/whatsapp` 暴露（HTTPS 已就绪）。
 
 ---
 
