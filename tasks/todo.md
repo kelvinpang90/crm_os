@@ -832,9 +832,9 @@ Worker 上报规划与就绪全部 ok；Kelvin 在 Telegram `开启 crm_os <首�
 
 ## 2. 业务仓库这一侧（本会话，5 个 PR，依次合并）
 
-- [ ] **PR-A · 工作区清理**：`.gitignore` 加 `.claude/settings.local.json`、`frontend/*.tsbuildinfo`、`frontend/vite.config.d.ts*`；
+- [x] **PR-A · 工作区清理**（kelvinpang90/crm_os#2；干净导出的 frontend 构建成功；合并时误删了本机的 `.claude/settings.local.json`，已从历史恢复到最后提交版，见 lessons.md）：`.gitignore` 加 `.claude/settings.local.json`、`frontend/*.tsbuildinfo`、`frontend/vite.config.d.ts*`；
       对这 5 个文件 `git rm --cached`（本地文件保留）；删掉根目录空的 `package-lock.json`。全是删除与忽略，不动代码。
-- [ ] **PR-B · 引入 ruff 并一次性修好**：仓库根新建 `ruff.toml`（规则见 Q3；排除 `backend/alembic/versions`，迁移历史不改写）；
+- [x] **PR-B · 引入 ruff 并一次性修好**（ruff 固定 0.16.7 = Worker 主机版本；76 个文件机械改动；手改两处：停用的邮件轮询 import 加 noqa、删一个未用变量；152 测试通过）：仓库根新建 `ruff.toml`（规则见 Q3；排除 `backend/alembic/versions`，迁移历史不改写）；
       `backend/requirements-dev.txt` 固定 ruff 版本；`ruff check --fix` + `ruff format`。
       **例外：这一步会机械地改动几十个文件**，超过「每步 ≤3 个文件」，但只有格式与自动修复，不改行为；
       需要手改的几处（未用变量等）单独列在提交说明里。验证：全量 pytest 仍 152 通过，两条 ruff 命令零退出。
@@ -895,4 +895,4 @@ Worker 上报规划与就绪全部 ok；Kelvin 在 Telegram `开启 crm_os <首�
 
 **Kelvin 的答复（2026-10-09）**：Q1、Q2、Q4、Q6、Q7 按建议；合并分工按建议（人工会话的 PR 由 Claude 验证后合并，Worker 的 PR 由 Kelvin 在 Telegram 批准）。
 Q5：**用 Claude Code 实现，同时用 Claude Code 独立审查**（Worker 本机配置 `reviewer.provider: claude_code`，不配 Codex）。
-Q3：待定（已解释两种规则集的差别）。
+Q3：**选 1**（`E,F,W,I`，忽略 E501、E712）。
