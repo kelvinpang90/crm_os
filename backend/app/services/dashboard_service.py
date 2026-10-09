@@ -209,7 +209,6 @@ async def _build_manager_funnel(
 
 async def get_manager_dashboard(db: AsyncSession, user: User) -> dict:
     team_ids = await _get_team_ids(db, user.id)
-    today = date.today()
     now = datetime.utcnow()
     year, month = now.year, now.month
 
