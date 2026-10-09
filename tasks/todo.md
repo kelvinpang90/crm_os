@@ -254,7 +254,7 @@ WhatsApp / 邮件 / 手工创建这三条路径几乎总能分到人。**（这�
 
 ---
 
-# 任务三：公开注册与按 id 接口越权修复（✅ 2026-10-09 完成，分支 `fix/authz-object-checks`，未推送）
+# 任务三：公开注册与按 id 接口越权修复（✅ 2026-10-09 完成，分支 `fix/authz-object-checks` 已合并进 master 并推送）
 
 > **Kelvin 2026-10-09 的答复**：Q1 选 A（直接关闭注册）；Q2 demo 账号先不动（「现在没有 demo 和真实的区别，
 > 都是自己用」），所以登录页的一键登录按钮保留，步骤 0 不处理账号、chatbot 不换账号；Q3 projects 是演示数据，
@@ -590,6 +590,8 @@ WHERE d.deleted_at IS NULL AND NOT (d.assigned_to <=> c.assigned_to);
   而是创建时的分派）。前端对 sales 不显示负责人下拉，风险低；要堵的话照 `may_assign_to` 加一行。
 - 登录页的一键 demo 账号（含 admin）按 Q2 保留。只要它们在生产上有效，**任何能打开登录页的人仍然是 admin**，
   本任务的对象检查对他们不起作用。等「demo 与真实是否分开」有结论时再处理。
+  - 2026-10-09 Kelvin：**保留一键 demo 账号**。做 CRM AI 客户摘要（DECISIONS E-12，真实数据）时要记得：
+    demo admin 能对所有真实客户触发摘要，届时在那个任务里单独讨论。
 
 ---
 
@@ -729,3 +731,61 @@ proxy_pass http://$crm_frontend;
 - 2026-10-09 后续（已处理）：上 VPS 核实 demo_os 容器与镜像都已删除，`/opt/demo_os/data`（87M）和 infra_mysql 的 `demo_os` 库
   （388K）仍保留；Kelvin 在 Cloudflare 删除了 demo 的 DNS 记录（acuventech.com 没有泛解析，删后权威 NS 已不返回地址，
   curl 报无法解析）；`E:\projects\CLAUDE.md` / `AGENTS.md` 已把 demo_os 标为下线。
+
+---
+
+# 任务五：部署改成按提交 SHA（规划中，待批准）
+
+依据：`acuven_hub/DECISIONS.md` I-07——`crm_os` 改成按提交 SHA 部署后，才登记进 OpenClaw。
+目标：`deploy.yml` 满足模板的部署观察契约 D1–D5（`acuven-project-template/TEMPLATE-GUIDE.md`）。
+做法：照搬 `acuven-shop` 已在生产跑通的 `deploy.yml` + `deploy/deploy.sh`，只改服务名、镜像名。
+
+## 1. 现状（2026-10-09 仓库内核实）
+
+- `deploy.yml`：push 到 master/main 触发；镜像打了 `latest` 和 `<sha>` 两个标签，但服务器上是
+  `git pull --ff-only` + `docker compose pull`（拉 `latest`）→ **部署的是“最新”，不是触发它的那个提交（违反 D2）**。
+- 迁移在 `up -d` **之后**才跑：新代码会先对着旧表结构跑一会儿。
+- 没有 `concurrency`、`timeout-minutes`（D4、D5），没有部署后健康检查、没有回滚（D3）。
+- `docker-compose.yml` 写死 `:latest`，没有 healthcheck；`/api/health` 不报版本，无法证明线上是哪个提交。
+- 仓库 secrets 只有 `VPS_HOST/PORT/USER/SSH_KEY`；缺 `VPS_FINGERPRINT`、`VPS_APP_DIR`，也没有变量 `HEALTHCHECK_URL`。
+- **未核实**：VPS 上 `/opt/crm_os` 的工作区是否干净（本地改动会挡住 `git checkout --detach`）、当前容器名。
+
+## 2. 实施拆分（每步 ≤3 个文件）
+
+- [ ] **步骤 0 · VPS 只读核对**（需要你放行 ssh）：`git status`、`git log -1`、`docker compose ps`。
+- [ ] **步骤 1 · 健康检查报版本**（2 个文件）：`backend/Dockerfile` 加 `ARG GIT_SHA` → `ENV`；
+      `/api/health` 多返回 `git_sha`。先写测试（红→绿）。这一步仍走旧流程上线，无风险。
+- [ ] **步骤 2 · 新部署流程**（3 个文件）：
+  - `docker-compose.yml`：镜像改为 `${CRM_BACKEND_IMAGE:?}` / `${CRM_FRONTEND_IMAGE:?}`，服务名不变；
+    加 healthcheck（backend 用 python 打 `/api/health`，frontend 用 wget）。
+  - 新增 `deploy/deploy.sh`：记下正在跑的版本 → pull → `run --rm` 跑迁移 → `up -d` → 等健康 →
+    不健康就回滚并非零退出 → 只清本项目（按 label）的旧镜像。
+  - `deploy.yml`：只由 master 触发；`workflow_dispatch` 填 40 位 SHA 用于回滚；`concurrency` 不取消；
+    两个 job 各 12 分钟；校验主机指纹；参数经 `envs` 传；部署后健康检查必须看到 `DEPLOY_SHA`；
+    构建时传 `GIT_SHA`、打 `acuven.project=crm_os` 标签；**不再推 `latest`**。
+- [ ] **步骤 3 · GitHub 配置**：secrets `VPS_FINGERPRINT`、`VPS_APP_DIR=/opt/crm_os`；
+      变量 `HEALTHCHECK_URL=https://crm.acuventech.com/api/health`。
+- [ ] **步骤 4 · 上线验证**：合并后看第一次运行；线上 `/api/health` 返回合并的那个 SHA。
+      可选：用 `workflow_dispatch` 填上一个 SHA 演练一次回滚。
+- [ ] **步骤 5 · 文档**：`DEPLOY.md` 第 3 节（部署、回滚）改成新流程。
+
+可选项（本次不做）：`paths-ignore`（`.platform/tasks.yaml` 等，等登记 OpenClaw 时一起做）；
+CI 测试工作流；`.platform/project.yaml`。
+
+## 3. 边缘情况
+
+- **第一次切换**：部署前正在跑的是 `:latest`，回滚目标就是这个本地镜像。新流程不再拉 `latest`，它会一直留在本地，
+  回滚能用；它没有 label，不会被自动清理，稳定后手动删。
+- **容器名**：服务名、目录（compose 项目名）都不变 → 容器名不变，nginx 按名解析（任务四）不受影响。
+- **服务器变成 detached HEAD**：以后不能再在 `/opt/crm_os` 手工 `git pull`；手工 `docker compose up` 会因为
+  没给镜像变量直接报错（这是有意的，避免起一个不知道是哪个提交的版本）。要写进 DEPLOY.md。
+- **迁移先于换容器**：迁移必须向后兼容（加表、加列）；回滚只换镜像，不降级数据库。
+- **健康检查经 Cloudflare**：`/api/` 不应被缓存；第一次上线时确认返回的是实时 SHA。
+- **本地开发**：compose 镜像变量必填后，本地 `.env` 里要加 `CRM_BACKEND_IMAGE` / `CRM_FRONTEND_IMAGE`（见 Q1）。
+- 单实例换容器仍有几秒 502，和现在一样。
+
+## 4. 需要 Kelvin 拍板
+
+- **Q1** 本地开发：镜像变量必填（像 shop，本地 `.env` 里加两行）还是给本地默认值？建议必填。
+- **Q2** 停止推 `latest` 标签？建议停，免得有人把 `latest` 当成线上版本。
+- **Q3** 步骤 3 的 secrets／变量：你在 GitHub 网页上设，还是授权我用 `gh` 设？主机指纹我可以先 `ssh-keyscan` 取出来给你比对。
