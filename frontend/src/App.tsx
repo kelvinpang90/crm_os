@@ -5,7 +5,6 @@ import MainLayout from '@/components/Layout/MainLayout';
 
 // Lazy-loaded pages
 const LoginPage = lazy(() => import('@/pages/Login'));
-const RegisterPage = lazy(() => import('@/pages/Register'));
 const DashboardPage = lazy(() => import('@/pages/Dashboard'));
 const ContactsPage = lazy(() => import('@/pages/Contacts'));
 const NewContactPage = lazy(() => import('@/pages/Contacts/NewContact'));
@@ -46,7 +45,6 @@ function App() {
     <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
 
         <Route
           element={

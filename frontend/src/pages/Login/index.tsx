@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/store/authStore';
 
@@ -191,14 +191,6 @@ export default function LoginPage() {
             ))}
           </div>
         </div>
-
-        {/* Register link */}
-        <p className="text-center text-sm text-text-secondary mt-6">
-          {t('register.noAccount')}{' '}
-          <Link to="/register" className="text-primary hover:text-primary/80 font-medium">
-            {t('register.goRegister')}
-          </Link>
-        </p>
 
         {/* Footer hint */}
         <p className="text-center text-text-muted text-xs mt-4">

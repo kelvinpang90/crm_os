@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
-from app.schemas.auth import LoginRequest, RegisterRequest, RefreshRequest, TokenResponse
+from app.schemas.auth import LoginRequest, RefreshRequest, TokenResponse
 from app.schemas.user import UserResponse
 from app.services.auth_service import (
     authenticate_user,
@@ -14,37 +14,13 @@ from app.services.auth_service import (
     refresh_access_token,
     logout,
 )
-from app.utils.security import hash_password
 from app.utils.response import ok, fail
 
 router = APIRouter()
 
-
-@router.post("/register")
-async def register(body: RegisterRequest, db: Annotated[AsyncSession, Depends(get_db)]):
-    from sqlalchemy import select
-
-    # Check duplicate email
-    existing = await db.execute(select(User).where(User.email == body.email))
-    if existing.scalar_one_or_none():
-        return fail("Email already registered", code="EMAIL_EXISTS", status_code=400)
-
-    user = User(
-        name=body.name,
-        email=body.email,
-        password_hash=hash_password(body.password),
-        role="sales",
-    )
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
-
-    tokens = generate_tokens(user)
-    user_data = UserResponse.model_validate(user).model_dump(mode="json")
-    return ok(
-        data={"user": user_data, **tokens},
-        message="Registered successfully",
-    )
+# There is deliberately no /register: accounts are created by an admin through
+# POST /api/users. A self-registered rep was handed new leads by the routing
+# engine, being the least-loaded active sales user.
 
 
 @router.post("/login")
