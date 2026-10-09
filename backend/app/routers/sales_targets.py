@@ -9,6 +9,7 @@ from app.dependencies import get_current_user, require_role
 from app.models.sales_target import SalesTarget
 from app.models.user import User
 from app.schemas.sales_target import SalesTargetCreate, SalesTargetUpdate
+from app.services import access_service
 from app.utils.response import ok, fail
 
 router = APIRouter()
@@ -71,6 +72,10 @@ async def create_target(
     current_user: Annotated[User, Depends(require_role("admin", "manager"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    # A manager sets targets for their own team only.
+    if not await access_service.may_access_owner(db, current_user, body.user_id):
+        return fail("Permission denied", code="FORBIDDEN", status_code=403)
+
     # Check duplicate
     existing = await db.execute(
         select(SalesTarget).where(
@@ -108,7 +113,8 @@ async def update_target(
 ):
     result = await db.execute(select(SalesTarget).where(SalesTarget.id == target_id))
     target = result.scalar_one_or_none()
-    if not target:
+    # Another team's target reads as missing, as it does in a manager's list.
+    if not target or not await access_service.may_access_owner(db, current_user, target.user_id):
         raise HTTPException(status_code=404, detail="Target not found")
 
     if body.target_amount is not None:

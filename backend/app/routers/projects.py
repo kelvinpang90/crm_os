@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_role
 from app.models.user import User
 from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectAdvance
 from app.services import project_service
@@ -36,7 +36,8 @@ async def create_project(
 @router.post("/seed-demo")
 async def seed_demo(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _current_user: Annotated[User, Depends(get_current_user)],
+    # Wipes both project tables before reseeding.
+    _current_user: Annotated[User, Depends(require_role("admin"))],
 ):
     count = await project_service.seed_demo(db)
     await db.commit()

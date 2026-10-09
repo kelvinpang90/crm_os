@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import require_role
 from app.models.user import User
 from app.services import autocount_service, autocount_client
 from app.utils.response import ok, fail
@@ -19,7 +19,7 @@ router = APIRouter()
 @router.post("/sync")
 async def sync_now(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _current_user: Annotated[User, Depends(get_current_user)],
+    _current_user: Annotated[User, Depends(require_role("admin", "manager"))],
 ):
     try:
         result = await autocount_service.sync_all(db)
