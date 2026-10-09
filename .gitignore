@@ -39,3 +39,10 @@ venv/
 .vscode/
 .idea/
 *.iml
+# =========================
+# Local / generated (must stay untracked: OpenClaw's Worker requires a clean checkout)
+# =========================
+.claude/settings.local.json
+frontend/*.tsbuildinfo
+frontend/vite.config.d.ts
+frontend/vite.config.d.ts.map

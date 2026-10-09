@@ -806,3 +806,93 @@ CI 测试工作流；`.platform/project.yaml`。
   等确认不再需要回滚到它们之后手动 `docker rmi`。
 - 回滚演练（`workflow_dispatch` 填上一个 SHA）没做；需要时再做。
 - 登记进 OpenClaw（I-07 的下半段）：`.platform/` 契约、`paths-ignore` 等，另开任务。
+
+---
+
+# 任务六：crm_os 登记进 OpenClaw（✅ 计划已批准 2026-10-09，进行中）
+
+依据：`acuven_hub/DECISIONS.md` I-07 的下半段（任务五已经改成按 SHA 部署）。
+权威格式：控制面仓库 `docs/ONBOARD-PROJECT.md`；模板 `acuven-project-template/TEMPLATE-GUIDE.md` 第 2–5 步。
+分两边做：**业务仓库**在本会话做（走 PR）；**控制面**按根目录 CLAUDE.md 另开会话，在控制面自己的目录里做（受限评审、Kelvin 合并与部署）。
+
+成功标准：对 crm_os 干净的 master 检出跑 `worker.contract_check` 没有 FAIL；控制面登记并分配给 windows-native；
+Worker 上报规划与就绪全部 ok；Kelvin 在 Telegram `开启 crm_os <首个任务>` 后得到一个 CI 全绿的 Draft PR。
+
+## 1. 现状差距（2026-10-09 只读核实）
+
+- 没有 `.platform/`（project / commands / tasks 三个契约），计划文件里没有 planning-v1 块 → contract_check 必然 FAIL。
+- 没有 CI 工作流，master 没有分支保护 → Worker 会把「零检查」当成全绿，测试形同虚设。
+- 沙箱里能跑的只有 python 的 ruff（asyncio 测试、node 检查只能放 CI），而每个任务的 `allowed_commands` 必须非空
+  → 必须先引入 ruff。现状（按 shop 的规则集）约 450 处 lint、61 个文件要重新格式化，大部分可自动修。
+- `deploy.yml` 没有 `paths-ignore`（自动收尾会以 `closeout_would_deploy` 被拒）；文件头写着「不设 paths 过滤」，要一起改。
+- 主仓库检出不干净（`.claude/settings.local.json` 被跟踪且有改动、`frontend/tsconfig.tsbuildinfo` 等构建产物被跟踪、
+  `AGENTS.md` 未提交）→ Worker preflight 的 `primary_checkout_clean` 会 FAIL。根目录还有一个空的 `package-lock.json`。
+- 现有 CLAUDE.md 要求「写代码前先描述方案-等批准再动手」，Worker 的实现会话没人在线确认，需要限定适用范围。
+- 默认分支是 master：控制面和 Worker 都取本机配置的 `default_branch`，没有障碍；模板和 shop 里写的 main 要逐处改。
+
+## 2. 业务仓库这一侧（本会话，5 个 PR，依次合并）
+
+- [ ] **PR-A · 工作区清理**：`.gitignore` 加 `.claude/settings.local.json`、`frontend/*.tsbuildinfo`、`frontend/vite.config.d.ts*`；
+      对这 5 个文件 `git rm --cached`（本地文件保留）；删掉根目录空的 `package-lock.json`。全是删除与忽略，不动代码。
+- [ ] **PR-B · 引入 ruff 并一次性修好**：仓库根新建 `ruff.toml`（规则见 Q3；排除 `backend/alembic/versions`，迁移历史不改写）；
+      `backend/requirements-dev.txt` 固定 ruff 版本；`ruff check --fix` + `ruff format`。
+      **例外：这一步会机械地改动几十个文件**，超过「每步 ≤3 个文件」，但只有格式与自动修复，不改行为；
+      需要手改的几处（未用变量等）单独列在提交说明里。验证：全量 pytest 仍 152 通过，两条 ruff 命令零退出。
+- [ ] **PR-C · CI 工作流** `.github/workflows/ci.yml`：`pull_request` 与 `push` 到 master；
+      job `backend`：装依赖 → `python -I -m ruff check .`、`python -I -m ruff format --check .`（与 commands.yaml 逐字相同）→ 在 `backend/` 下跑 pytest；
+      job `frontend`：`npm ci` + `npm run build`（含 `tsc -b`）。**不设 paths 过滤**（收尾 PR 只改契约与计划文件，必需检查必须照样跑）。
+- [ ] **GitHub 设置（Kelvin，PR-C 合并、检查名出现之后）**：master 分支保护——要求 PR、审批 0 人、必需检查 `backend` `frontend`、
+      要求分支与 master 同步（见 Q7）、线性历史、禁止 force push 与删除、管理员也受约束；合并方式只留 squash；不开 auto-merge。
+      **从这以后不能再直推 master**，`tasks/todo.md` 的更新也要走 PR。
+- [ ] **PR-D · OpenClaw 契约**：`.platform/project.yaml`（`project_id: crm_os`、`deploy_workflow: deploy.yml`、`execution_worker: windows-native`、
+      `worker_enabled: true`，人读字段写 master / squash / backend、frontend）、`.platform/commands.yaml`（`lint.check`、`format.check`）、
+      `.platform/tasks.yaml`（首个任务，见 Q4）；计划文件里加 planning-v1 块（见 Q2）。
+- [ ] **PR-E · 规则与部署收尾**：`CLAUDE.md` 改成 Worker 能用的规则（保留 Kelvin 的 12 条；「先计划、等批准」限定为**没登记进 tasks.yaml 的工作**；
+      加模板的角色与收尾、登记任务、密钥规则；写明合并分工：人工会话的 PR 由 Claude 验证后合并，Worker 的 PR 由 Kelvin 在 Telegram「批准」）；
+      `AGENTS.md` 与它逐字相同并提交；`deploy.yml` 的 push 加 `paths-ignore: [.platform/tasks.yaml, <计划文件>]`，改文件头注释。
+- [ ] **自检**：对 crm_os 干净的 master 检出跑 `python -m worker.contract_check --repo <检出> --project-id crm_os --task-id-pattern '^CRM-TASK-[0-9]{3}$' --planning <计划文件>`，
+      没有 FAIL；首个任务按条件跑 `worker.design_precheck` 或写「预审：不适用」及理由。输出交给控制面会话。
+
+## 3. 控制面这一侧（另开会话，在 `acuven-openclaw-control-plane` 做；照 acuven_shop 的 PR #79 → #81 先例）
+
+1. 登记 PR：`projects/registry.json` 加 crm_os（`status: pilot`、`worker: none`、`task_id_pattern`、`authorized_principals: [operator-primary]`、
+   `planning_source`、`merge_strategy: squash`），重新渲染 `PROJECTS.md`，PR 正文附 contract_check 输出与 deploy.yml 的 D1–D5 审阅
+   → 受限评审 → Kelvin 合并。注意：此时 `开启` 会以 `plan_unavailable` 拒绝，备注要写对。
+2. 分配 PR：`worker` 改为 `windows-native`，改 `tests/test_worker_disabled.py` 的固定集合和各处「两个项目」的文案 → 受限评审 → Kelvin 合并。
+3. 部署（**Kelvin 的明确动作**）：控制 API 部署到合并提交（要挑三个项目都没有在途 run 的时候），再把 Worker 部署副本切到同一提交，同步 `PROJECTS.md`。
+4. Worker 主机本地配置（Git 忽略，Kelvin / 运营者）：`worker.crm_os.local.json`（`worker_id: windows-crm`、`worktree_root: E:\projects\.acuven-openclaw-worktrees-crm`、
+   `default_branch: master`、`check_win32k` 登记两条 ruff、`merge_enabled: true`；无 BOM 的 UTF-8）、`run-worker-crm_os.ps1`、
+   计划任务 `AcuvenOpenClawWorker-crm_os`（从现有任务导出 XML 只改名字和脚本路径）；
+   固定的 `pythoncore-3.14` 里装上与 CI 同版本的 ruff。
+5. 先用 `enabled:false` 的副本跑 `worker.preflight`（每个 ready 任务）和 `worker.dry_run`，全部 PASS 才换上启用的配置。
+6. 等 Worker 上报规划与就绪；Kelvin 授权后在 Telegram `开启 crm_os CRM-TASK-001`，合并还要对该 run `批准`。
+7. 可选、之后单独做：登记表 `auto_closeout: true`（Q6）。
+8. 根目录 `E:\projects\CLAUDE.md` / `AGENTS.md` 的 OpenClaw 链路一段加上 crm_os。
+
+## 4. 边缘情况
+
+- **主仓库检出必须保持干净**：Worker 在 `E:\projects\crm_os` 上 fetch、建 worktree。以后人工会话在这里留下未提交的改动，
+  `开启` 就会被 preflight 拒。人工会话改用 git worktree，或做完即提交。
+- **`paths-ignore` 之后**，只改契约与计划文件的提交不部署，线上 `/api/health` 的 SHA 会落后于 master HEAD，这是预期。
+- **E712（`== True`）不能自动修**：SQLAlchemy 的过滤条件依赖它，改成 `is True` 查询就错了 → 规则里忽略。
+- **ruff 版本**：CI、本地、Worker 主机三处必须同一版本，否则格式检查会互相打架。
+- **重新格式化会让 git blame 失真**：把 PR-B 的提交写进 `.git-blame-ignore-revs`（可选）。
+- **strict 分支保护**：开了以后，Worker 的 PR 开着时不要合并人工 PR，否则 Worker 的 PR 变成 BEHIND，批准后以 `merge_rejected` 结束。
+- **公开仓库**：`.platform/`、任务文本、PR 正文都公开，不写主机名、IP、域名、绝对路径。
+- **Codex 专属目录**里已有 acuven-shop 的信任记录，crm_os 不能共用（会 `codex_home_invalid`），见 Q5。
+- 控制面部署窗口：任何项目有在途 run 时 `deploy.control_api` 会拒绝。
+
+## 5. 需要 Kelvin 拍板
+
+- **Q1** 任务编号规则：`^CRM-TASK-[0-9]{3}$`？（建议这样，和 shop 一致）
+- **Q2** 计划文件：继续用 `tasks/todo.md`（建议：只有一个地方记任务）还是像模板那样新建 `docs/TODO.md`？
+- **Q3** ruff 规则：建议 `E,F,W,I`，忽略 `E501`（长行）、`E712`（SQLAlchemy），再加 `ruff format`——基本全是自动修。
+      另一选项是照 shop 加上 `B,UP`：多约 260 处自动修，并且要手改 74 处长行。
+- **Q4** 首个登记任务：建议 `CRM-TASK-001` = 新建客户和 Excel 导入时的 `assigned_to_email` 也要过 `may_assign_to`（任务三遗留，小、低风险、只动后端）。
+- **Q5** 实现者：只用 Claude（建议，像 ai_billing_hub，不配 Codex）还是给 crm_os 单独建 Codex 目录？
+- **Q6** 自动收尾 `auto_closeout`：建议首次运行跑通后再单独开（shop 也是这样）。
+- **Q7** 分支保护「要求与 master 同步」：建议开（和 shop 一致，防止拿旧基线的 CI 结果合并），代价见边缘情况。
+
+**Kelvin 的答复（2026-10-09）**：Q1、Q2、Q4、Q6、Q7 按建议；合并分工按建议（人工会话的 PR 由 Claude 验证后合并，Worker 的 PR 由 Kelvin 在 Telegram 批准）。
+Q5：**用 Claude Code 实现，同时用 Claude Code 独立审查**（Worker 本机配置 `reviewer.provider: claude_code`，不配 Codex）。
+Q3：待定（已解释两种规则集的差别）。
