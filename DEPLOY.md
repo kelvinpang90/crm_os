@@ -281,7 +281,7 @@ GitHub → 仓库 → Settings → Actions → General → Workflow permissions�
 
 按提交 SHA 部署，满足 OpenClaw 部署观察契约 D1–D5（写法照搬 acuven-shop，细节见文件头注释）：
 
-- **触发**：每次 push 到 `master` 都部署那个提交（不按路径过滤）；Actions 页面手动 `workflow_dispatch` 时必须填完整 40 位 SHA，用于重部署或回滚
+- **触发**：每次 push 到 `master` 都部署那个提交；例外是只改 `.platform/tasks.yaml` 与 `tasks/todo.md` 的提交（OpenClaw 收尾）不部署；Actions 页面手动 `workflow_dispatch` 时必须填完整 40 位 SHA，用于重部署或回滚
 - **build job**：构建 `backend` / `frontend` 两个镜像，**只打 `<commit_sha>` 标签**（不再推 `latest`），推到 `ghcr.io/<owner>/crm_os-backend|frontend`；构建时把 SHA 写进后端镜像
 - **deploy job**：通过 `appleboy/ssh-action`（校验主机指纹）进 VPS：
   ```
