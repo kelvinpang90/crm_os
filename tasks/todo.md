@@ -838,7 +838,7 @@ Worker 上报规划与就绪全部 ok；Kelvin 在 Telegram `开启 crm_os <首�
       `backend/requirements-dev.txt` 固定 ruff 版本；`ruff check --fix` + `ruff format`。
       **例外：这一步会机械地改动几十个文件**，超过「每步 ≤3 个文件」，但只有格式与自动修复，不改行为；
       需要手改的几处（未用变量等）单独列在提交说明里。验证：全量 pytest 仍 152 通过，两条 ruff 命令零退出。
-- [ ] **PR-C · CI 工作流** `.github/workflows/ci.yml`：`pull_request` 与 `push` 到 master；
+- [x] **PR-C · CI 工作流**（另加 shellcheck `deploy/deploy.sh` 与 compose 可解析检查；本地验证：shellcheck 通过、干净导出的 frontend `npm ci` + build 通过） `.github/workflows/ci.yml`：`pull_request` 与 `push` 到 master；
       job `backend`：装依赖 → `python -I -m ruff check .`、`python -I -m ruff format --check .`（与 commands.yaml 逐字相同）→ 在 `backend/` 下跑 pytest；
       job `frontend`：`npm ci` + `npm run build`（含 `tsc -b`）。**不设 paths 过滤**（收尾 PR 只改契约与计划文件，必需检查必须照样跑）。
 - [ ] **GitHub 设置（Kelvin，PR-C 合并、检查名出现之后）**：master 分支保护——要求 PR、审批 0 人、必需检查 `backend` `frontend`、
