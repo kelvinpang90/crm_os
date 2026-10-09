@@ -12,7 +12,7 @@ from app.main import app
 from app.dependencies import get_current_user
 from app.models.contact import Contact
 from app.models.user import User
-from app.routers.messages import _may_message_contact
+from app.services.access_service import may_access_contact
 
 REP = User(id="u-rep", name="Rep", email="rep@example.com", password_hash="x", role="sales")
 OTHER = User(id="u-other", name="Other", email="other@example.com", password_hash="x", role="sales")
@@ -53,7 +53,7 @@ async def _seed(session_maker) -> None:
 async def test_permission_matrix(async_session_maker, user, contact_id, allowed):
     await _seed(async_session_maker)
     async with async_session_maker() as session:
-        assert await _may_message_contact(session, user, contact_id) is allowed
+        assert await may_access_contact(session, user, contact_id) is allowed
 
 
 async def test_send_endpoint_refuses_and_sends_nothing(client, async_session_maker):

@@ -10,7 +10,7 @@ from app.models.user import User
 from app.models.message import Message
 from app.models.contact import Contact
 from app.schemas.message import WhatsAppSendRequest, EmailSendRequest
-from app.services import whatsapp_service, email_service
+from app.services import access_service, whatsapp_service, email_service
 from app.services.whatsapp_service import WhatsAppSendError
 from app.utils.response import ok, fail
 
@@ -20,38 +20,7 @@ NOT_YOURS = (
     "This customer is not assigned to you. Ask an administrator to send it, "
     "or have the customer assigned to you first."
 )
-
-
-async def _may_message_contact(
-    db: AsyncSession, current_user: User, contact_id: str
-) -> bool:
-    """Whether `current_user` is allowed to send to this customer.
-
-    Admins are unrestricted; a manager needs the customer to sit with someone on
-    their team; a sales rep needs it to be their own. A customer with no owner
-    therefore reaches only admins — `None` is neither the rep's own id nor a
-    member of any team list — so an unowned customer has to be assigned to
-    somebody before a rep can write to them. A customer that does not exist is
-    refused the same way rather than confirming it is missing.
-    """
-    if current_user.role == "admin":
-        return True
-
-    owner = (
-        await db.execute(
-            select(Contact.assigned_to).where(
-                Contact.id == contact_id, Contact.deleted_at.is_(None)
-            )
-        )
-    ).scalar_one_or_none()
-    if owner is None:
-        return False
-
-    if current_user.role == "manager":
-        from app.services.dashboard_service import _get_team_ids
-        return owner in await _get_team_ids(db, current_user.id)
-
-    return owner == current_user.id
+NOT_YOURS_TO_READ = "This conversation is not assigned to you."
 
 
 @router.get("")
@@ -114,6 +83,9 @@ async def contact_messages(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    if not await access_service.may_access_contact(db, current_user, contact_id):
+        return fail(message=NOT_YOURS_TO_READ, code="NOT_ASSIGNED", status_code=403)
+
     result = await db.execute(
         select(Message)
         .where(Message.contact_id == contact_id)
@@ -131,6 +103,12 @@ async def mark_read(
 ):
     result = await db.execute(select(Message).where(Message.id == message_id))
     msg = result.scalar_one_or_none()
+    # Judged by Message.assigned_to, the column the inbox list filters on. A
+    # missing message has no owner, so only an admin gets as far as "not found".
+    if not await access_service.may_access_owner(
+        db, current_user, msg.assigned_to if msg else None
+    ):
+        return fail(message=NOT_YOURS_TO_READ, code="NOT_ASSIGNED", status_code=403)
     if not msg:
         return fail(message="Message not found", code=404)
     msg.is_read = True
@@ -144,7 +122,7 @@ async def send_whatsapp(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    if not await _may_message_contact(db, current_user, body.contact_id):
+    if not await access_service.may_access_contact(db, current_user, body.contact_id):
         return fail(message=NOT_YOURS, code="NOT_ASSIGNED", status_code=403)
 
     try:
@@ -162,7 +140,7 @@ async def send_email(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    if not await _may_message_contact(db, current_user, body.contact_id):
+    if not await access_service.may_access_contact(db, current_user, body.contact_id):
         return fail(message=NOT_YOURS, code="NOT_ASSIGNED", status_code=403)
 
     data = await email_service.send_email(db, body.contact_id, body.subject, body.body)
