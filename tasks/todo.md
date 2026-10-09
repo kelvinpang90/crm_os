@@ -859,23 +859,24 @@ Worker 上报规划与就绪全部 ok；Kelvin 在 Telegram `开启 crm_os <首�
 
 - [x] **PR-A · 工作区清理**（kelvinpang90/crm_os#2；干净导出的 frontend 构建成功；合并时误删了本机的 `.claude/settings.local.json`，已从历史恢复到最后提交版，见 lessons.md）：`.gitignore` 加 `.claude/settings.local.json`、`frontend/*.tsbuildinfo`、`frontend/vite.config.d.ts*`；
       对这 5 个文件 `git rm --cached`（本地文件保留）；删掉根目录空的 `package-lock.json`。全是删除与忽略，不动代码。
-- [x] **PR-B · 引入 ruff 并一次性修好**（ruff 固定 0.16.7 = Worker 主机版本；76 个文件机械改动；手改两处：停用的邮件轮询 import 加 noqa、删一个未用变量；152 测试通过）：仓库根新建 `ruff.toml`（规则见 Q3；排除 `backend/alembic/versions`，迁移历史不改写）；
+- [x] **PR-B · 引入 ruff 并一次性修好**（kelvinpang90/crm_os#3；首次部署因 GHCR 登录 503 失败，未动服务器，重跑成功；ruff 固定 0.16.7 = Worker 主机版本；76 个文件机械改动；手改两处：停用的邮件轮询 import 加 noqa、删一个未用变量；152 测试通过）：仓库根新建 `ruff.toml`（规则见 Q3；排除 `backend/alembic/versions`，迁移历史不改写）；
       `backend/requirements-dev.txt` 固定 ruff 版本；`ruff check --fix` + `ruff format`。
       **例外：这一步会机械地改动几十个文件**，超过「每步 ≤3 个文件」，但只有格式与自动修复，不改行为；
       需要手改的几处（未用变量等）单独列在提交说明里。验证：全量 pytest 仍 152 通过，两条 ruff 命令零退出。
-- [x] **PR-C · CI 工作流**（另加 shellcheck `deploy/deploy.sh` 与 compose 可解析检查；本地验证：shellcheck 通过、干净导出的 frontend `npm ci` + build 通过） `.github/workflows/ci.yml`：`pull_request` 与 `push` 到 master；
+- [x] **PR-C · CI 工作流**（kelvinpang90/crm_os#4；另加 shellcheck `deploy/deploy.sh` 与 compose 可解析检查；本地验证：shellcheck 通过、干净导出的 frontend `npm ci` + build 通过） `.github/workflows/ci.yml`：`pull_request` 与 `push` 到 master；
       job `backend`：装依赖 → `python -I -m ruff check .`、`python -I -m ruff format --check .`（与 commands.yaml 逐字相同）→ 在 `backend/` 下跑 pytest；
       job `frontend`：`npm ci` + `npm run build`（含 `tsc -b`）。**不设 paths 过滤**（收尾 PR 只改契约与计划文件，必需检查必须照样跑）。
-- [ ] **GitHub 设置（Kelvin，PR-C 合并、检查名出现之后）**：master 分支保护——要求 PR、审批 0 人、必需检查 `backend` `frontend`、
+- [ ] **GitHub 设置（Kelvin，PR-C 合并、检查名出现之后；2026-10-10 核对：尚未设置）**：master 分支保护——要求 PR、审批 0 人、必需检查 `backend` `frontend`、
       要求分支与 master 同步（见 Q7）、线性历史、禁止 force push 与删除、管理员也受约束；合并方式只留 squash；不开 auto-merge。
       **从这以后不能再直推 master**，`tasks/todo.md` 的更新也要走 PR。
-- [ ] **PR-D · OpenClaw 契约**：`.platform/project.yaml`（`project_id: crm_os`、`deploy_workflow: deploy.yml`、`execution_worker: windows-native`、
+- [x] **PR-D · OpenClaw 契约**（kelvinpang90/crm_os#5；contract_check 提示 CRM-TASK-001 验收标准 9 条，合并为 8 条）：`.platform/project.yaml`（`project_id: crm_os`、`deploy_workflow: deploy.yml`、`execution_worker: windows-native`、
       `worker_enabled: true`，人读字段写 master / squash / backend、frontend）、`.platform/commands.yaml`（`lint.check`、`format.check`）、
       `.platform/tasks.yaml`（首个任务，见 Q4）；计划文件里加 planning-v1 块（见 Q2）。
-- [ ] **PR-E · 规则与部署收尾**：`CLAUDE.md` 改成 Worker 能用的规则（保留 Kelvin 的 12 条；「先计划、等批准」限定为**没登记进 tasks.yaml 的工作**；
+- [x] **PR-E · 规则与部署收尾**（kelvinpang90/crm_os#6；用控制面 `worker.closeout.deploy_ignores` 验证收尾形状为 True）：`CLAUDE.md` 改成 Worker 能用的规则（保留 Kelvin 的 12 条；「先计划、等批准」限定为**没登记进 tasks.yaml 的工作**；
       加模板的角色与收尾、登记任务、密钥规则；写明合并分工：人工会话的 PR 由 Claude 验证后合并，Worker 的 PR 由 Kelvin 在 Telegram「批准」）；
       `AGENTS.md` 与它逐字相同并提交；`deploy.yml` 的 push 加 `paths-ignore: [.platform/tasks.yaml, <计划文件>]`，改文件头注释。
-- [ ] **自检**：对 crm_os 干净的 master 检出跑 `python -m worker.contract_check --repo <检出> --project-id crm_os --task-id-pattern '^CRM-TASK-[0-9]{3}$' --planning <计划文件>`，
+- [x] **自检**（2026-10-10，主检出 = 干净的 master `630b955`：`result: ready to register`；3 条 WARN 都是 Worker 主机的事——固定 python、为 lint.check / format.check 登记 check_win32k；
+      用 Worker 主机固定的 pythoncore-3.14 原样跑两条命令均零退出；CRM-TASK-001 预审：不适用，只补已有的权限检查）：对 crm_os 干净的 master 检出跑 `python -m worker.contract_check --repo <检出> --project-id crm_os --task-id-pattern '^CRM-TASK-[0-9]{3}$' --planning <计划文件>`，
       没有 FAIL；首个任务按条件跑 `worker.design_precheck` 或写「预审：不适用」及理由。输出交给控制面会话。
 
 ## 3. 控制面这一侧（另开会话，在 `acuven-openclaw-control-plane` 做；照 acuven_shop 的 PR #79 → #81 先例）
