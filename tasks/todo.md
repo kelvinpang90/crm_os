@@ -695,7 +695,13 @@ proxy_pass http://$crm_frontend;
       等 10–15s 再测两个域名都 200，并看 `docker inspect` 确认 IP 确实变了
 - [x] **4. crm_os 仓库**（已在本地提交，**未推送**：推送会触发部署，必须等线上 nginx 改完再推）：`nginx/conf.d/crm.conf` 改成与线上一致的写法，修正头部注释说明真实来源；deploy.yml 里那段
       「手动同步 nginx」的注释按步骤 0 结论更新
-- [ ] **5. 推送 + 观察 Deploy CRM**：部署结束后两个域名仍 200、nginx 日志无新 `connect() failed`
+- [x] **5. 推送 + 观察 Deploy CRM**（`35cc857`，run 37930139077 build/deploy 均 success）：部署后两个域名 `/`、`/api/health` 全 200。
+      部署期间每 2s 探测一次：只在 **20:28:12** 两个域名的 `/api/health` 各 502 一次——nginx 日志显示连的是 `172.19.0.10:8000`，
+      正是后端**当前**的 IP，容器创建时间也是 20:28:12，所以是 uvicorn 还没起来的一两秒启动空窗，不是旧 IP 问题；`/` 没有失败。
+      本次部署 IP 仍然没变（backend 172.19.0.10、frontend 172.19.0.7），所以**「IP 变化后自愈」在生产上仍未被实际触发过**；
+      依据是 `nginx -T` 已加载 `resolve` 配置 + 其他站点用同一 resolver 的长期表现。下次真的发生 IP 对调时看 nginx 日志即可确认。
+      （启动空窗如要消除，需要给 backend 加 healthcheck / 滚动替换，不在本任务范围）
+      原计划：部署结束后两个域名仍 200、nginx 日志无新 `connect() failed`
 
 回滚：`cp <文件>.bak-20261009 <文件> && nginx -t && nginx -s reload`。
 
