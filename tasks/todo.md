@@ -590,3 +590,119 @@ WHERE d.deleted_at IS NULL AND NOT (d.assigned_to <=> c.assigned_to);
   而是创建时的分派）。前端对 sales 不显示负责人下拉，风险低；要堵的话照 `may_assign_to` 加一行。
 - 登录页的一键 demo 账号（含 admin）按 Q2 保留。只要它们在生产上有效，**任何能打开登录页的人仍然是 admin**，
   本任务的对象检查对他们不起作用。等「demo 与真实是否分开」有结论时再处理。
+
+---
+
+# 任务四：部署后 nginx 仍指向旧容器 IP 导致全站 502（📝 方案待 Kelvin 批准，未改任何东西）
+
+> 提出时间：2026-10-09
+> 现象：部署 `f49e3e5` 时，Deploy CRM 只做了 `docker compose up -d --remove-orphans`，容器重建后 IP 对调
+> （前端拿到了后端原来的 172.19.0.7）。infra_nginx 还在用启动 / 上次 reload 时解析的 IP，
+> crm.acuventech.com 与 crm.kelvinpeng.com 全站 502，日志 `connect() failed (111) ... upstream: "http://172.19.0.7:8000/..."`。
+> 手动 `docker exec infra_nginx nginx -t && nginx -s reload` 后恢复。
+
+## 1. 核实结果
+
+> ⚠️ 本次**没能登录 VPS 读取**（会话权限拦下了对生产机的只读 ssh），以下来自本地仓库与公网探测。
+> 本地 `vps_infra/nginx/conf.d/*.conf` 被 `.gitignore` 排除，是 **2026-09-16 16:02 从 VPS 拷下来的快照**，
+> 不保证与线上一致（快照里就没有 shop.acuventech.com 的 vhost）。标「待 VPS 核实」的必须实施前再看一眼。
+
+- **http 级 resolver 已经存在**：`vps_infra/nginx/nginx.conf`（git 跟踪）里有
+  `resolver 127.0.0.11 valid=10s ipv6=off;`，注释写明就是为了「容器重建后 IP 变了 nginx 缓存旧 IP 返回 502」。
+  erp、aisearch、chatbot、whatsappgateway、rsroofpms，以及 **crm.acuventech.com 的前端**，都已经用
+  `set $x "容器名:端口"; proxy_pass http://$x;` 的写法。
+- **CRM 是唯一的例外**，两处写死：
+  1. `upstream crm_backend { server crm_os-backend-1:8000 ...; keepalive 32; }` —— upstream 块里的主机名
+     只在启动 / reload 时解析一次。两个 CRM 域名的 `/api/`、`/api/webhooks/`、`/health` 都走它。
+     **这正是日志里 `172.19.0.7:8000` 的来源。**
+  2. crm.kelvinpeng.com 的 `location /` 是 `proxy_pass http://crm_os-frontend-1:80;`（字面主机名，同样只解析一次）。
+     crm.acuventech.com 的前端已经是变量写法，不受影响。
+- **配置的「唯一来源」已经分叉**（待 VPS 核实）：
+  - `crm_os/nginx/conf.d/crm.conf` 头部注释自称「THE production nginx config」，要求复制到
+    `/srv/infra/nginx/conf.d/crm.conf`；它只含 crm.kelvinpeng.com。
+  - 但 09-16 快照里 crm 的 upstream 和 crm.kelvinpeng.com 都写在 `kelvinpeng.com.conf`，crm.acuventech.com 写在
+    `acuventech.com.conf`，**快照里没有 crm.conf**；而且快照里法律页文案是一句话，和 crm_os 仓库里的长文案不同。
+  - 如果 VPS 上 crm.conf 和 kelvinpeng.com.conf **同时存在**，会出现重复的 `upstream crm_backend` / 重复 server_name，
+    `nginx -t` 会失败或告警 —— 所以线上大概率只有其中一份。改之前必须先确认到底是哪个文件在生效。
+- **nginx 版本**：`vps_infra/docker-compose.yml` 用的是未锁版本的 `nginx:alpine`。方案 (b′) 需要 ≥ 1.27.3（待 VPS 核实 `nginx -v`）。
+
+## 2. 方案比较
+
+| | (a) 部署后 reload | (b) 变量 + resolver | (b′) upstream 里加 `resolve`（**推荐**） |
+|---|---|---|---|
+| 改哪里 | `crm_os/.github/workflows/deploy.yml` 加一行 | VPS 上 CRM 的 vhost：4 处 `proxy_pass` 改变量 | VPS 上 CRM 的 upstream 块加 2 个词 + crm.kelvinpeng.com 前端一行改变量 |
+| 根治？ | ❌ 只覆盖「经工作流部署」这一条路径。手动 `docker compose up`、容器崩溃重启、宿主机重启后的启动顺序、`docker restart` 都还会复现 | ✅ 每 10s 重新解析 | ✅ 同 (b) |
+| 残留窗口 | `up -d` 到 reload 之间几秒；若 alembic 失败（`set -e`）reload 根本不会执行 | 最长 10s（resolver `valid=10s`） | 同 (b) |
+| 副作用 | reload 是所有站点共享的；**任何别的项目把配置写坏，`nginx -t` 失败会让 CRM 部署失败**——把 CRM 部署和全站配置耦合了 | 变量 `proxy_pass` 绕过 upstream 块，**丢掉 `keepalive 32` 和 `max_fails`**；`/health` 的 `proxy_pass http://$v/api/health` 语义要重新确认 | upstream 块、keepalive、max_fails、`/health` 的写法全部不变 |
+| 对其他项目影响 | reload 会让所有站点的 worker 平滑换代（不断连） | 无。resolver 已在 http 级，其他站点早已是这种写法 | 无。同 (b) |
+| 前提 | 部署用户能 `docker exec infra_nginx` | 无 | nginx ≥ 1.27.3（开源版在这一版开始支持 upstream `resolve`） |
+
+(b′) 的写法：
+
+```nginx
+upstream crm_backend {
+    zone crm_backend 64k;                                        # resolve 需要共享内存区
+    server crm_os-backend-1:8000 resolve max_fails=2 fail_timeout=10s;
+    keepalive 32;
+}
+# crm.kelvinpeng.com 的 location /：
+set $crm_frontend "crm_os-frontend-1:80";   # 与 crm.acuventech.com 现有写法一致
+proxy_pass http://$crm_frontend;
+```
+
+**推荐 (b′)**，nginx 版本不够时退回 (b)。理由：
+1. 问题根源是「CRM 是共享 nginx 里唯一没跟上既定写法的站点」，修它就是让 CRM 回归既有约定，不是引入新机制；
+2. 同时覆盖崩溃重启、手动部署、宿主机重启等所有让 IP 变化的路径，(a) 只覆盖一条；
+3. 不把 CRM 部署和其他项目的配置健康度绑在一起；
+4. 比 (b) 改得更少，并保留 keepalive / 熔断。
+
+**不建议** (a)+(b′) 同时做：(b′) 生效后 reload 多余，还会带回 (a) 的耦合问题。
+
+## 3. 影响范围
+
+- **只动 CRM 自己的 server / upstream 块**，所在文件是共享的（`kelvinpeng.com.conf`，或者如果线上是 crm.conf 就是它），
+  不碰其他项目的 vhost，也不改 `nginx.conf`（resolver 已在）。
+- 生效需要一次 `nginx -t && nginx -s reload`：平滑重载，影响所有站点但不断连；`-t` 失败则不 reload，旧配置继续服务。
+- `vps_infra` 仓库：conf.d 不入 git，所以**不产生 vps_infra 提交**；本地快照可同步更新（可选）。
+- `crm_os` 仓库：同步修改 `nginx/conf.d/crm.conf`，并修正它头部「THE production config」的说法（见步骤 1 的结论）。
+  该路径在 deploy.yml 的触发列表里，**推送会触发一次部署**——和本修复一起推正好验证。
+
+## 4. 实施步骤（批准后执行，每步都要 Kelvin 放行对生产机的 ssh）
+
+- [ ] **0. VPS 只读核实**：`ls -la /srv/infra/nginx/conf.d/`；`grep -rn "crm_backend\|crm_os-" /srv/infra/nginx/conf.d/`
+      确认 CRM 配置在哪个文件、有没有重复；`docker exec infra_nginx nginx -v`；`docker exec infra_nginx nginx -T | grep -n resolver`
+- [ ] **1. 备份**：`cp <文件> <文件>.bak-20261009`
+- [ ] **2. 改 VPS 上的 CRM 配置**：按 (b′)（或 (b)）修改；`docker exec infra_nginx nginx -t` 通过后 `nginx -s reload`
+- [ ] **3. 验证根治**（不是只看 200）：两个域名 `/`、`/api/health` 200 →
+      在 VPS 上 `docker compose -f /opt/crm_os/docker-compose.yml up -d --force-recreate backend frontend`（**不 reload nginx**）→
+      等 10–15s 再测两个域名都 200，并看 `docker inspect` 确认 IP 确实变了
+- [ ] **4. crm_os 仓库**：`nginx/conf.d/crm.conf` 改成与线上一致的写法，修正头部注释说明真实来源；deploy.yml 里那段
+      「手动同步 nginx」的注释按步骤 0 结论更新
+- [ ] **5. 推送 + 观察 Deploy CRM**：部署结束后两个域名仍 200、nginx 日志无新 `connect() failed`
+
+回滚：`cp <文件>.bak-20261009 <文件> && nginx -t && nginx -s reload`。
+
+## 5. 边缘情况
+
+- 容器重建的那几秒：旧 IP 可能已经被别的容器拿走（这次就是前端拿到了后端旧 IP），在 10s 有效期内请求可能打到错的容器。
+  后端端口 8000 在前端容器上不监听 → 502 几秒后自愈。可接受；要更短可把 `valid` 调小，但那是全站 resolver，不建议为此改。
+- `resolve` 下如果启动时容器名解析不到，nginx **照样能启动**（服务器标记为不可用）—— 比现在更好：
+  现在 crm 容器不在时 infra_nginx 重启会因为 upstream 解析失败**整个起不来，拖垮所有站点**。
+- nginx:alpine 未锁版本：以后有人 `docker compose pull` 拿到新版本不影响 (b′)（只会更新，不会降到 1.27.3 以下）。
+
+## 6. 顺带：demo.acuventech.com 返回 520 的原因
+
+**结论：是 2026-09-16 主动下线的预期结果，不是 10-09 19:18 那次 reload 引起的（证据见下，未看 VPS 日志，属高可信推断）。**
+
+- 本地快照 `acuventech.com.conf`（09-16 16:02）里 demo 的 server 块已整段注释，并写明：
+  「2026-09-16 已下线（Kelvin：项目不再使用），容器 demo_os_backend 与镜像已删除，数据保留在 /opt/demo_os/data 与 infra_mysql 的 demo_os 库」。
+- 注释掉后，这个域名落到 `nginx.conf` 的默认 server（`server_name _`，`return 444`）——直接断开连接、不回任何响应。
+- 2026-10-09 实测：经 Cloudflare 访问 → `520`（`server: cloudflare`）；绕过 Cloudflare 直连源站 103.40.204.95 → curl 退出码 56
+  （连接被对端关闭），正是 444 的表现。Cloudflare 收到空响应就报 520。
+- 当时的注释写着「curl 显示为 000，已实测确认」，说明 09-16 就已经是这个状态。19:18 的 reload 只会重新加载同一份配置，
+  不会让一个早已注释掉的站点改变行为。
+- 待 VPS 核实（可选）：`grep -n demo /srv/infra/nginx/conf.d/*.conf` 确认线上仍是注释状态；
+  `docker logs infra_nginx --since 2026-10-09T00:00 | grep demo` 看有没有 444。
+- 遗留：Cloudflare 上 demo 的 DNS 记录仍是代理状态，所以访客看到的是 Cloudflare 520 错误页。要么删 DNS 记录，要么
+  给它一个「已下线」的静态页。另外 `E:\projects\CLAUDE.md` 的项目表和基础设施图仍把 demo_os 列为在线，需要更新。
+  这两件不在本任务范围内。
