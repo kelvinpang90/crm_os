@@ -693,7 +693,7 @@ proxy_pass http://$crm_frontend;
 - [~] **3. 验证根治**（见上：IP 没变，未能证实）（不是只看 200）：两个域名 `/`、`/api/health` 200 →
       在 VPS 上 `docker compose -f /opt/crm_os/docker-compose.yml up -d --force-recreate backend frontend`（**不 reload nginx**）→
       等 10–15s 再测两个域名都 200，并看 `docker inspect` 确认 IP 确实变了
-- [x] **4. crm_os 仓库**（已在本地提交，**未推送**：推送会触发部署，必须等线上 nginx 改完再推）：`nginx/conf.d/crm.conf` 改成与线上一致的写法，修正头部注释说明真实来源；deploy.yml 里那段
+- [x] **4. crm_os 仓库**（`cbe8c1f`，等线上 nginx 改完后才推送）：`nginx/conf.d/crm.conf` 改成与线上一致的写法，修正头部注释说明真实来源；deploy.yml 里那段
       「手动同步 nginx」的注释按步骤 0 结论更新
 - [x] **5. 推送 + 观察 Deploy CRM**（`35cc857`，run 37930139077 build/deploy 均 success）：部署后两个域名 `/`、`/api/health` 全 200。
       部署期间每 2s 探测一次：只在 **20:28:12** 两个域名的 `/api/health` 各 502 一次——nginx 日志显示连的是 `172.19.0.10:8000`，
