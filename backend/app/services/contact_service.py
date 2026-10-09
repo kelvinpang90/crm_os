@@ -9,7 +9,7 @@ from app.models.contact import Contact
 from app.models.deal import Deal
 from app.models.message import Message
 from app.models.user import User
-from app.services import routing_service
+from app.services import access_service, routing_service
 from app.utils.demo_scope import contact_not_demo
 
 
@@ -298,7 +298,10 @@ async def import_contacts(
                 select(Contact).where(Contact.id == customer_id, Contact.deleted_at.is_(None))
             )
             contact = existing.scalar_one_or_none()
-            if not contact:
+            # Someone else's customer reads the same as a missing one.
+            if not contact or not await access_service.may_access_contact(
+                db, current_user, customer_id
+            ):
                 errors.append({"row": i, "field": "customer_id", "message": f"Contact not found: {customer_id}"})
                 skipped += 1
                 continue

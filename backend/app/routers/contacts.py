@@ -3,18 +3,28 @@ from io import BytesIO
 
 from fastapi import APIRouter, Depends, Form, Query, UploadFile, File
 from fastapi.responses import StreamingResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from openpyxl import Workbook, load_workbook
 
 from app.database import get_db
 from app.dependencies import get_current_user, require_role
+from app.models.deal import Deal
 from app.models.user import User
 from app.schemas.contact import ContactCreate, ContactUpdate, ArchiveRequest
 from app.schemas.activity import ActivityCreate
-from app.services import contact_service, activity_service, autocount_service, routing_service
+from app.services import (
+    access_service, contact_service, activity_service, autocount_service, routing_service,
+)
 from app.utils.response import ok, fail
 
 router = APIRouter()
+
+
+def _not_found():
+    # Also the answer for a customer that is not yours, so an id's existence is
+    # never confirmed to someone who may not see it.
+    return fail("Contact not found", code="NOT_FOUND", status_code=404)
 
 
 @router.get("")
@@ -138,11 +148,13 @@ async def import_contacts(
 async def get_contact(
     contact_id: str,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
+    if not await access_service.may_access_contact(db, current_user, contact_id):
+        return _not_found()
     contact = await contact_service.get_contact(db, contact_id)
     if not contact:
-        return fail("Contact not found", code="NOT_FOUND", status_code=404)
+        return _not_found()
     return ok(data=contact)
 
 
@@ -164,12 +176,20 @@ async def update_contact(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
 ):
+    if not await access_service.may_access_contact(db, current_user, contact_id):
+        return _not_found()
     data = {k: v for k, v in body.model_dump().items() if v is not None}
     if "is_archived" in data and current_user.role not in ("admin", "manager"):
         return fail("Permission denied", code="FORBIDDEN", status_code=403)
+    # Resubmitting the current owner passes: having reached the customer, the
+    # caller can always reach whoever owns it.
+    if data.get("assigned_to") and not await access_service.may_assign_to(
+        db, current_user, data["assigned_to"]
+    ):
+        return fail("Permission denied", code="FORBIDDEN", status_code=403)
     contact = await contact_service.update_contact(db, contact_id, data, current_user)
     if not contact:
-        return fail("Contact not found", code="NOT_FOUND", status_code=404)
+        return _not_found()
     return ok(data=contact, message="Updated successfully")
 
 
@@ -178,11 +198,13 @@ async def archive_contact(
     contact_id: str,
     body: ArchiveRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _current_user: Annotated[User, Depends(require_role("admin", "manager"))],
+    current_user: Annotated[User, Depends(require_role("admin", "manager"))],
 ):
+    if not await access_service.may_access_contact(db, current_user, contact_id):
+        return _not_found()
     contact = await contact_service.archive_contact(db, contact_id, body.is_archived)
     if not contact:
-        return fail("Contact not found", code="NOT_FOUND", status_code=404)
+        return _not_found()
     msg = "Archived" if body.is_archived else "Unarchived"
     return ok(data=contact, message=f"{msg} successfully")
 
@@ -205,8 +227,10 @@ async def delete_contact(
 async def list_autocount_documents(
     contact_id: str,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
+    if not await access_service.may_access_contact(db, current_user, contact_id):
+        return _not_found()
     documents = await autocount_service.list_contact_documents(db, contact_id)
     return ok(data=documents)
 
@@ -217,8 +241,10 @@ async def list_autocount_documents(
 async def list_activities(
     contact_id: str,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
+    if not await access_service.may_access_contact(db, current_user, contact_id):
+        return _not_found()
     activities = await activity_service.list_activities(db, contact_id)
     return ok(data=activities)
 
@@ -230,6 +256,21 @@ async def create_activity(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
 ):
+    if not await access_service.may_access_contact(db, current_user, contact_id):
+        return _not_found()
+    # The deal has to be one of this customer's, or the note lands on a card
+    # that belongs to somebody else.
+    deal_matches = (
+        await db.execute(
+            select(Deal.id).where(
+                Deal.id == body.deal_id,
+                Deal.contact_id == contact_id,
+                Deal.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if not deal_matches:
+        return fail("Deal not found", code="NOT_FOUND", status_code=404)
     activity = await activity_service.create_activity(
         db, contact_id, body.deal_id, current_user.id, body.type, body.content, body.follow_date,
     )
