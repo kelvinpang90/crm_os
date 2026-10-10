@@ -866,7 +866,7 @@ Worker 上报规划与就绪全部 ok；Kelvin 在 Telegram `开启 crm_os <首�
 - [x] **PR-C · CI 工作流**（kelvinpang90/crm_os#4；另加 shellcheck `deploy/deploy.sh` 与 compose 可解析检查；本地验证：shellcheck 通过、干净导出的 frontend `npm ci` + build 通过） `.github/workflows/ci.yml`：`pull_request` 与 `push` 到 master；
       job `backend`：装依赖 → `python -I -m ruff check .`、`python -I -m ruff format --check .`（与 commands.yaml 逐字相同）→ 在 `backend/` 下跑 pytest；
       job `frontend`：`npm ci` + `npm run build`（含 `tsc -b`）。**不设 paths 过滤**（收尾 PR 只改契约与计划文件，必需检查必须照样跑）。
-- [ ] **GitHub 设置（Kelvin，PR-C 合并、检查名出现之后；2026-10-10 核对：尚未设置）**：master 分支保护——要求 PR、审批 0 人、必需检查 `backend` `frontend`、
+- [x] **GitHub 设置（Kelvin，PR-C 合并、检查名出现之后；2026-10-10 用 GitHub API 核对：已设置，与下列要求一致）**：master 分支保护——要求 PR、审批 0 人、必需检查 `backend` `frontend`、
       要求分支与 master 同步（见 Q7）、线性历史、禁止 force push 与删除、管理员也受约束；合并方式只留 squash；不开 auto-merge。
       **从这以后不能再直推 master**，`tasks/todo.md` 的更新也要走 PR。
 - [x] **PR-D · OpenClaw 契约**（kelvinpang90/crm_os#5；contract_check 提示 CRM-TASK-001 验收标准 9 条，合并为 8 条）：`.platform/project.yaml`（`project_id: crm_os`、`deploy_workflow: deploy.yml`、`execution_worker: windows-native`、
