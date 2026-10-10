@@ -224,6 +224,11 @@ async def create_contact(
     current_user: Annotated[User, Depends(get_current_user)],
 ):
     data = body.model_dump()
+    # Same rule as handing over an existing customer in update_contact.
+    if data.get("assigned_to") and not await access_service.may_assign_to(
+        db, current_user, data["assigned_to"]
+    ):
+        return fail("Permission denied", code="FORBIDDEN", status_code=403)
     contact = await contact_service.create_contact(db, data, current_user)
     return ok(data=contact, message="Contact created", status_code=201)
 
