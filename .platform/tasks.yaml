@@ -46,7 +46,7 @@ tasks:
       新建客户接口和表格导入的负责人邮箱列目前能把新客户直接分给任何人，而编辑客户时已经按
       access_service.may_assign_to 校验。把同一个校验补到这两个入口，让新建与编辑的口径一致。
       只改这两个入口；不改 may_assign_to 本身、不改自动分派（路由规则）、不改前端、不改表结构。
-    status: ready
+    status: done
     depends_on: []
     acceptance_criteria:
       - 新建客户时请求里带了 assigned_to 且 access_service.may_assign_to 判为否，返回与编辑客户越权时相同的 403 响应（FORBIDDEN），不创建客户；不带 assigned_to、或带了且有权分派时行为不变
