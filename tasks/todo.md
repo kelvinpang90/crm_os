@@ -922,3 +922,36 @@ Worker 上报规划与就绪全部 ok；Kelvin 在 Telegram `开启 crm_os <首�
 **Kelvin 的答复（2026-10-09）**：Q1、Q2、Q4、Q6、Q7 按建议；合并分工按建议（人工会话的 PR 由 Claude 验证后合并，Worker 的 PR 由 Kelvin 在 Telegram 批准）。
 Q5：**用 Claude Code 实现，同时用 Claude Code 独立审查**（Worker 本机配置 `reviewer.provider: claude_code`，不配 Codex）。
 Q3：**选 1**（`E,F,W,I`，忽略 E501、E712）。
+
+---
+
+# CRM-TASK-001：新建客户和表格导入时校验负责人分派权限
+
+来源：任务三「新发现、本次没处理的」第一条。编辑客户已经按 `access_service.may_assign_to` 校验负责人，
+新建与导入两个入口补上同一个校验，口径与编辑一致。
+
+## 做了什么
+
+- [x] `backend/app/routers/contacts.py` 的 `create_contact`：请求带了 `assigned_to` 且 `may_assign_to` 判否时，
+      在调 service 之前返回与 `update_contact` 越权时相同的 `403 FORBIDDEN`（`Permission denied`），不建客户。
+      不带 `assigned_to` 时不进这个分支，sales 回落到自己、其他角色走路由，与原来相同。
+- [x] `backend/app/services/contact_service.py` 的 `import_contacts`：`assigned_to_email` 找到了在职账号、
+      但导入人无权分派给他时，按「找不到」处理，于是落进原有的 `Sales account not found or inactive` 行错误
+      （同字段、同文案，不暴露账号是否存在），该行跳过、其他行照常。列为空时不查权限；`auto_assign` 与按策略分派只在
+      没有显式负责人时才走，没有改。带 `customer_id` 的行（给已有客户加商机）用的是同一段负责人解析，所以也一并受这条校验约束。
+- [x] 新增测试 `backend/tests/test_contact_create_assign.py`，每条的 docstring 写明守住哪条验收标准：
+      销售给别人建被拒（且响应与编辑越权逐字相同）、销售给自己建成功、销售不带负责人仍归自己、经理给本团队建成功、
+      经理给团队外建被拒、管理员给任何人建成功；导入时越权行被拒而其他行照常导入、越权行的错误与「账号不存在」除行号外相同、
+      有权分派和空负责人的导入行为不变。
+      新建接口的测试用一个每次请求都 commit 的 `get_db` 覆盖（与生产的 `get_db` 一致），这样「没建客户」是查库查出来的，
+      而不是因为测试会话没提交。
+
+## 偏离
+
+- 没有改 `may_assign_to`、路由规则、前端和表结构。
+- 管理员给一个不存在的 id 建客户，仍由原有的 `_validate_assigned_user` 返回 400；非管理员给不存在的 id 建客户现在先得到 403
+  （不存在的 id 不在任何人的可分派范围内）。这与编辑客户的先后顺序一致。
+
+## 验证到什么程度
+
+- 验证依据是上面的新测试加已有后端测试，由 PR 的必需检查 `backend` 执行；检查结果由 Worker 和 CI 记录，不写在这里。

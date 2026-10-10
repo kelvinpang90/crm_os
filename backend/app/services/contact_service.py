@@ -288,6 +288,12 @@ async def import_contacts(
         assigned_user_id = None
         if assigned_email:
             assigned_user_id = active_users.get(assigned_email)
+            # Someone the importer may not assign to reads the same as a missing
+            # account, so the sheet cannot probe which emails exist.
+            if assigned_user_id and not await access_service.may_assign_to(
+                db, current_user, assigned_user_id
+            ):
+                assigned_user_id = None
             if not assigned_user_id:
                 row_errors.append(
                     {
